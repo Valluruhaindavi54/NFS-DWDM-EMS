@@ -1,14 +1,116 @@
 "use client";
 
-export default function HomePage() {
+import React, { useEffect, useState } from "react";
+import { StatCard } from "./components/ClientWrappers";
+
+// ---------- API helper ----------
+async function getData(endpoint: string) {
+  const url = `/api/proxy?endpoint=${endpoint}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.data || [];
+  } catch (err: any) {
+    console.error(`Fetch error for ${endpoint}:`, err.message);
+    return [];}}
+  
+
+export default function Page() {
+  const [nodes, setNodes] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ---------- Fetch every 2s ----------
+  useEffect(() => {
+    const fetchAll = async () => {
+      const [n, u, i] = await Promise.all([
+        getData("nodes"),
+        getData("users"),
+        getData("inventory"),
+      ]);
+
+      setNodes(n);
+      setUsers(u);
+      setInventory(i);
+      setLoading(false);
+    };
+
+    fetchAll();
+    const interval = setInterval(fetchAll, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) return null; // header stays visible, cards load silently
+
+  // ---------- Node stats ----------
+  const nodeStats = nodes.reduce(
+    (acc, node) => {
+      const status = node.status?.toUpperCase();
+      if (status === "UP") acc.up++;
+      else if (status === "DOWN") acc.down++;
+      return acc;
+    },
+    { up: 0, down: 0 }
+  );
+
+  // ---------- Active users (latest action per user) ----------
+  const latestUserAction: Record<string, { action: string; timestamp: string }> =
+    {};
+
+  users.forEach((u: any) => {
+    if (
+      !latestUserAction[u.username] ||
+      new Date(u.timestamp) >
+        new Date(latestUserAction[u.username].timestamp)
+    ) {
+      latestUserAction[u.username] = {
+        action: u.action,
+        timestamp: u.timestamp,
+      };
+    }
+  });
+
+  const activeUsers = Object.values(latestUserAction).filter(
+    u => u.action === "login"
+  ).length;
+
+  // ---------- Inventory ----------
+  const totalInventory = inventory.length;
+
   return (
     <div
       style={{
-        minHeight: "100vh",
-        backgroundColor: "#0f172a", // plain background
+        display: "flex",
+        gap: "12px",
+        padding: "12px 20px",
+        background: "#0f172a",
       }}
     >
-      {/* Page content is intentionally left empty */}
+      <StatCard
+        label="Nodes Up"
+        count={nodeStats.up}
+        color="#22c55e"
+      />
+
+      <StatCard
+        label="Nodes Down"
+        count={nodeStats.down}
+        color="#ef4444"
+      />
+
+      <StatCard
+        label="Active Users"
+        count={activeUsers}
+        color="#38bdf8"
+      />
+
+      <StatCard
+        label="Total Inventory"
+        count={totalInventory}
+        color="#a855f7"
+      />
     </div>
   );
 }
