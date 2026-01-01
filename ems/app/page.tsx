@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { StatCard } from "./components/ClientWrappers";
+import NodesCard from "./components/NodesCard";
+import AlarmCard from "./components/AlarmCard";
+
 
 // ---------- API helper ----------
 async function getData(endpoint: string) {
@@ -77,23 +80,27 @@ export default function Page() {
   const totalAlarms = alarms.length;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "12px",
-        padding: "12px 20px",
-        background: "#0f172a",
-      }}
-    >
-      <StatCard label="Nodes Up" count={nodeStats.up} color="#22c55e" />
+     <div style={{ padding: "20px", background: "#0f172a", minHeight: "100vh" }}>
+      {/* Top summary cards */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+        <StatCard label="Nodes Up" count={nodeStats.up} color="#22c55e" />
+        <StatCard label="Nodes Down" count={nodeStats.down} color="#ef4444" />
+        <StatCard label="Total Alarms" count={totalAlarms} color="#f97316" />
+        <StatCard label="Active Users" count={activeUsers} color="#38bdf8" />
+        <StatCard label="Total Inventory" count={totalInventory} color="#a855f7" />
+      </div>
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: "20px",
+  }}
+>
+  <NodesCard />
+  <AlarmCard />
+</div>
 
-      <StatCard label="Nodes Down" count={nodeStats.down} color="#ef4444" />
 
-      <StatCard label="Total Alarms" count={totalAlarms} color="#f97316" />
-
-      <StatCard label="Active Users" count={activeUsers} color="#38bdf8" />
-
-      <StatCard label="Total Inventory" count={totalInventory} color="#a855f7" />
     </div>
   );
 }
