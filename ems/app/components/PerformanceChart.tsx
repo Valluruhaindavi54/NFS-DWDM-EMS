@@ -16,7 +16,7 @@ interface Props {
 
 export default function PerformanceChart({ data }: Props) {
   return (
-    <div style={{ width: "100%", height: 260,marginBottom:20 }}>
+    <div style={{ width: "100%", height: 200,marginBottom:20 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />

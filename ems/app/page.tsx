@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { StatCard } from "./components/ClientWrappers";
 import NodesCard from "./components/NodesCard";
 import AlarmCard from "./components/AlarmCard";
+import PerformanceCard from "./components/PerformanceCard";
+import InventoryCard from "./components/InventoryCard";
 
 
 // ---------- API helper ----------
@@ -98,6 +100,17 @@ export default function Page() {
 >
   <NodesCard />
   <AlarmCard />
+      </div>
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gap: "20px",
+    marginTop:"10px",
+  }}
+>
+  <PerformanceCard/>
+  <InventoryCard />
 </div>
 
 
