@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useEffect, useMemo, useState } from "react";
-import { GlassCard } from "./ClientWrappers";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { GlassCard, AlarmChip } from "./ClientWrappers";
 import type { UserChartData } from "./UserChart";
 
 export type UserAction = {
@@ -15,9 +15,31 @@ export type UserAction = {
 
 const UserChart = dynamic(() => import("./UserChart"), { ssr: false });
 
+// -----------------------------
+// ACTION COLORS (aligned with AlarmCard philosophy)
+// -----------------------------
+const actionColor = (action: string) => {
+  switch (action) {
+    case "login":
+      return "#22c55e"; // Green
+    case "failedLogin":
+      return "#ff0000"; // Red
+    case "configChange":
+      return "#ff7f00"; // Orange
+    case "logout":
+      return "#3b82f6"; // Blue
+    default:
+      return "#94a3b8"; // Gray
+  }
+};
+
 export default function UserCard() {
   const [actions, setActions] = useState<UserAction[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // -----------------------------
+  // FETCH + 45s POLLING
+  // -----------------------------
   useEffect(() => {
     const fetchActions = async () => {
       try {
@@ -28,7 +50,13 @@ export default function UserCard() {
         console.error(err);
       }
     };
+
     fetchActions();
+    timerRef.current = setInterval(fetchActions, 45000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
   // -----------------------------
@@ -47,12 +75,23 @@ export default function UserCard() {
     [actions]
   );
 
-  const failedLogins = useMemo(() => actions.filter(a => a.action === "failedLogin").length, [actions]);
-  const configChanges = useMemo(() => actions.filter(a => a.action === "configChange").length, [actions]);
-  const logouts = useMemo(() => actions.filter(a => a.action === "logout").length, [actions]);
+  const failedLogins = useMemo(
+    () => actions.filter(a => a.action === "failedLogin").length,
+    [actions]
+  );
+
+  const configChanges = useMemo(
+    () => actions.filter(a => a.action === "configChange").length,
+    [actions]
+  );
+
+  const logouts = useMemo(
+    () => actions.filter(a => a.action === "logout").length,
+    [actions]
+  );
 
   // -----------------------------
-  // CHART DATA LOGIC
+  // CHART DATA
   // -----------------------------
   const chartData: UserChartData[] = useMemo(() => {
     const grouped: Record<string, UserChartData> = {};
@@ -60,7 +99,13 @@ export default function UserCard() {
     actions.forEach(a => {
       const date = new Date(a.timestamp).toISOString().split("T")[0];
       if (!grouped[date]) {
-        grouped[date] = { date, login: 0, failedLogin: 0, configChange: 0, logout: 0 };
+        grouped[date] = {
+          date,
+          login: 0,
+          failedLogin: 0,
+          configChange: 0,
+          logout: 0,
+        };
       }
       if (a.action in grouped[date]) {
         grouped[date][a.action as keyof UserChartData]++;
@@ -73,15 +118,16 @@ export default function UserCard() {
   // -----------------------------
   // STYLES
   // -----------------------------
-  const cardStyle: React.CSSProperties = {
+  const cardStyle = (color: string): React.CSSProperties => ({
     flex: 1,
     background: "rgba(30,41,59,0.4)",
     borderRadius: 12,
     padding: 16,
     margin: 8,
-    color: "#fff",
+    color,
     textAlign: "center",
-  };
+    border: `1px solid ${color}33`,
+  });
 
   const headerStyle: React.CSSProperties = {
     position: "sticky",
@@ -108,36 +154,36 @@ export default function UserCard() {
   // -----------------------------
   return (
     <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600, padding: 16 }}>
-      {/* Quick Cards */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <div style={cardStyle}>
-          <h3>Active Users (24h)</h3>
-          <p>{activeUsers}</p>
-        </div>
-        <div style={cardStyle}>
-          <h3>Failed Logins</h3>
-          <p>{failedLogins}</p>
-        </div>
-        <div style={cardStyle}>
-          <h3>Config Changes</h3>
-          <p>{configChanges}</p>
-        </div>
-        <div style={cardStyle}>
-          <h3>Logouts</h3>
-          <p>{logouts}</p>
-        </div>
-      </div>
+    {/* Quick Cards / Action Summary */}
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+      {[
+        { label: "Active Users", action: "login", count: activeUsers },
+        { label: "Failed Logins", action: "failedLogin", count: failedLogins },
+        { label: "Config Changes", action: "configChange", count: configChanges },
+        { label: "Logouts", action: "logout", count: logouts },
+      ].map(({ label, action, count }) => (
+        <AlarmChip
+          key={action}
+          label={label}
+          count={count}
+          color={actionColor(action)}
+        />
+      ))}
+    </div>
 
-      <div style={{ width: "100%", height: 300, minHeight: 300 }}>
-  <UserChart data={chartData} />
-</div>
+
+
+      {/* Chart */}
+      <div style={{ width: "100%", height: 300 }}>
+        <UserChart data={chartData} />
+      </div>
 
       {/* Table */}
       <div style={{ marginTop: 16, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["User Id","Username", "Action", "Timestamp", "IP"].map(h => (
+              {["User Id", "Username", "Action", "Timestamp", "IP"].map(h => (
                 <th key={h} style={headerStyle}>{h}</th>
               ))}
             </tr>
@@ -147,7 +193,9 @@ export default function UserCard() {
               <tr key={a.id}>
                 <td style={cellStyle}>{a.id}</td>
                 <td style={cellStyle}>{a.username}</td>
-                <td style={cellStyle}>{a.action}</td>
+                <td style={{ ...cellStyle, color: actionColor(a.action), fontWeight: 500 }}>
+                  {a.action}
+                </td>
                 <td style={cellStyle}>{new Date(a.timestamp).toLocaleString()}</td>
                 <td style={cellStyle}>{a.ip}</td>
               </tr>
