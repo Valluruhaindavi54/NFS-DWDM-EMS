@@ -6,6 +6,8 @@ import NodesCard from "./components/NodesCard";
 import AlarmCard from "./components/AlarmCard";
 import PerformanceCard from "./components/PerformanceCard";
 import InventoryCard from "./components/InventoryCard";
+import UserCard from "./components/UserCard";
+
 
 
 // ---------- API helper ----------
@@ -112,7 +114,17 @@ export default function Page() {
   <PerformanceCard/>
   <InventoryCard />
 </div>
-
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gap: "20px",
+    marginTop:"10px",
+  }}
+>
+  <UserCard/>
+ 
+</div>
 
     </div>
   );
