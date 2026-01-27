@@ -49,7 +49,7 @@ export default function Page() {
     };
 
     fetchAll();
-    const interval = setInterval(fetchAll, 2000);
+    const interval = setInterval(fetchAll, 45000);
     return () => clearInterval(interval);
   }, []);
 

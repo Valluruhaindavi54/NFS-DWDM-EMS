@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useEffect, useMemo, useState } from "react";
-import { GlassCard } from "./ClientWrappers";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { GlassCard, AlarmChip } from "./ClientWrappers";
 import type { UserChartData } from "./UserChart";
 
 export type UserAction = {
@@ -15,25 +15,67 @@ export type UserAction = {
 
 const UserChart = dynamic(() => import("./UserChart"), { ssr: false });
 
+const actionColor = (action: string) => {
+  switch (action) {
+    case "login":
+      return "#22c55e";
+    case "failedLogin":
+      return "#ff0000";
+    case "configChange":
+      return "#ff7f00";
+    case "logout":
+      return "#3b82f6";
+    default:
+      return "#94a3b8";
+  }
+};
+
 export default function UserCard() {
   const [actions, setActions] = useState<UserAction[]>([]);
+  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+  const prevRef = useRef<Map<string, UserAction>>(new Map());
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const fetchActions = async () => {
       try {
         const res = await fetch("/api/proxy?endpoint=users", { cache: "no-store" });
         const json = await res.json();
-        setActions(Array.isArray(json) ? json : json.data ?? []);
+        const data: UserAction[] = Array.isArray(json) ? json : json.data ?? [];
+
+        const changed = new Set<string>();
+        const prevMap = prevRef.current;
+
+        data.forEach(a => {
+          const prev = prevMap.get(a.id);
+          if (!prev || prev.action !== a.action || prev.timestamp !== a.timestamp || prev.ip !== a.ip) {
+            changed.add(a.id);
+          }
+        });
+
+        const ordered = [
+          ...data.filter(a => changed.has(a.id)),
+          ...data.filter(a => !changed.has(a.id)),
+        ];
+
+        setActions(ordered);
+        setHighlighted(changed);
+        prevRef.current = new Map(data.map(a => [a.id, a]));
+
+        setTimeout(() => setHighlighted(new Set()), 5000);
       } catch (err) {
         console.error(err);
       }
     };
+
     fetchActions();
+    timerRef.current = setInterval(fetchActions, 45000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
-  // -----------------------------
-  // QUICK CARDS LOGIC
-  // -----------------------------
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -47,13 +89,21 @@ export default function UserCard() {
     [actions]
   );
 
-  const failedLogins = useMemo(() => actions.filter(a => a.action === "failedLogin").length, [actions]);
-  const configChanges = useMemo(() => actions.filter(a => a.action === "configChange").length, [actions]);
-  const logouts = useMemo(() => actions.filter(a => a.action === "logout").length, [actions]);
+  const failedLogins = useMemo(
+    () => actions.filter(a => a.action === "failedLogin").length,
+    [actions]
+  );
 
-  // -----------------------------
-  // CHART DATA LOGIC
-  // -----------------------------
+  const configChanges = useMemo(
+    () => actions.filter(a => a.action === "configChange").length,
+    [actions]
+  );
+
+  const logouts = useMemo(
+    () => actions.filter(a => a.action === "logout").length,
+    [actions]
+  );
+
   const chartData: UserChartData[] = useMemo(() => {
     const grouped: Record<string, UserChartData> = {};
 
@@ -62,26 +112,11 @@ export default function UserCard() {
       if (!grouped[date]) {
         grouped[date] = { date, login: 0, failedLogin: 0, configChange: 0, logout: 0 };
       }
-      if (a.action in grouped[date]) {
-        grouped[date][a.action as keyof UserChartData]++;
-      }
+      grouped[date][a.action as keyof UserChartData]++;
     });
 
     return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
   }, [actions]);
-
-  // -----------------------------
-  // STYLES
-  // -----------------------------
-  const cardStyle: React.CSSProperties = {
-    flex: 1,
-    background: "rgba(30,41,59,0.4)",
-    borderRadius: 12,
-    padding: 16,
-    margin: 8,
-    color: "#fff",
-    textAlign: "center",
-  };
 
   const headerStyle: React.CSSProperties = {
     position: "sticky",
@@ -103,55 +138,53 @@ export default function UserCard() {
     color: "#ffffff",
   };
 
-  // -----------------------------
-  // RENDER
-  // -----------------------------
   return (
     <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600, padding: 16 }}>
-      {/* Quick Cards */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <div style={cardStyle}>
-          <h3>Active Users (24h)</h3>
-          <p>{activeUsers}</p>
-        </div>
-        <div style={cardStyle}>
-          <h3>Failed Logins</h3>
-          <p>{failedLogins}</p>
-        </div>
-        <div style={cardStyle}>
-          <h3>Config Changes</h3>
-          <p>{configChanges}</p>
-        </div>
-        <div style={cardStyle}>
-          <h3>Logouts</h3>
-          <p>{logouts}</p>
-        </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {[
+          { label: "Active Users", action: "login", count: activeUsers },
+          { label: "Failed Logins", action: "failedLogin", count: failedLogins },
+          { label: "Config Changes", action: "configChange", count: configChanges },
+          { label: "Logouts", action: "logout", count: logouts },
+        ].map(({ label, action, count }) => (
+          <AlarmChip key={action} label={label} count={count} color={actionColor(action)} />
+        ))}
       </div>
 
-      <div style={{ width: "100%", height: 300, minHeight: 300 }}>
-  <UserChart data={chartData} />
-</div>
+      <div style={{ width: "100%", height: 300 }}>
+        <UserChart data={chartData} />
+      </div>
 
-      {/* Table */}
       <div style={{ marginTop: 16, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["User Id","Username", "Action", "Timestamp", "IP"].map(h => (
+              {["User Id", "Username", "Action", "Timestamp", "IP"].map(h => (
                 <th key={h} style={headerStyle}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {actions.map(a => (
-              <tr key={a.id}>
-                <td style={cellStyle}>{a.id}</td>
-                <td style={cellStyle}>{a.username}</td>
-                <td style={cellStyle}>{a.action}</td>
-                <td style={cellStyle}>{new Date(a.timestamp).toLocaleString()}</td>
-                <td style={cellStyle}>{a.ip}</td>
-              </tr>
-            ))}
+            {actions.map(a => {
+              const isChanged = highlighted.has(a.id);
+              return (
+                <tr
+                  key={a.id}
+                  style={{
+                    backgroundColor: isChanged ? "rgba(59,130,246,0.2)" : "transparent",
+                    transition: "background-color 1s ease-in-out",
+                  }}
+                >
+                  <td style={cellStyle}>{a.id}</td>
+                  <td style={cellStyle}>{a.username}</td>
+                  <td style={{ ...cellStyle, color: actionColor(a.action), fontWeight: 500 }}>
+                    {a.action}
+                  </td>
+                  <td style={cellStyle}>{new Date(a.timestamp).toLocaleString()}</td>
+                  <td style={cellStyle}>{a.ip}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
