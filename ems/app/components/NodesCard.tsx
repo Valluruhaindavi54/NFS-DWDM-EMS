@@ -44,7 +44,7 @@ export default function NodesCard() {
           if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
         }
       });
-
+      console.log("Changed Nodes:", Array.from(changed));
       topRef.current = [
         ...newTop,
         ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
