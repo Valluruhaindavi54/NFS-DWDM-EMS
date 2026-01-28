@@ -57,7 +57,7 @@ export default function UserCard() {
           ...data.filter(a => changed.has(a.id)),
           ...data.filter(a => !changed.has(a.id)),
         ];
-
+        console.log("Changed users:", Array.from(changed));
         setActions(ordered);
         setHighlighted(changed);
         prevRef.current = new Map(data.map(a => [a.id, a]));
