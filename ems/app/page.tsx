@@ -7,6 +7,7 @@ import AlarmCard from "./components/AlarmCard";
 import PerformanceCard from "./components/PerformanceCard";
 import InventoryCard from "./components/InventoryCard";
 import UserCard from "./components/UserCard";
+import ConfigurationCard from "./components/ConfigCard";
 
 
 
@@ -122,7 +123,8 @@ export default function Page() {
     marginTop:"10px",
   }}
 >
-  <UserCard/>
+        <UserCard />
+        <ConfigurationCard/>
  
 </div>
 

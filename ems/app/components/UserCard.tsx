@@ -140,6 +140,9 @@ export default function UserCard() {
 
   return (
     <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600, padding: 16 }}>
+            <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#ffffff" }}>
+        User Status
+      </h2>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         {[
           { label: "Active Users", action: "login", count: activeUsers },
