@@ -4,78 +4,56 @@ import React, { useEffect, useRef, useState } from "react";
 import { GlassCard } from "./ClientWrappers";
 import PerformanceChart from "./PerformanceChart";
 
-interface PerformanceData {
+export interface PerformanceData {
   nodeId: number;
   timestamp: string;
   latency: number;
   errorRate: number;
- bandwidthUtilization: number;
+  bandwidthUtilization: number;
 }
 
-export default function PerformanceCard() {
+export default function PerformanceCard({ performance }: { performance: PerformanceData[] }) {
   const [data, setData] = useState<PerformanceData[]>([]);
   const [highlightedIds, setHighlightedIds] = useState<Set<number>>(new Set());
-  const prevDataRef = useRef<PerformanceData[]>([]);
-  const topDataRef = useRef<PerformanceData[]>([]); // persist new/changed on top
 
-const fetchPerformance = async () => {
-  try {
-    const res = await fetch("/api/proxy?endpoint=performance", { cache: "no-store" });
-    if (!res.ok) throw new Error("API failed");
+  const prevDataRef = useRef<Map<number, PerformanceData>>(new Map());
+  const topDataRef = useRef<PerformanceData[]>([]);
 
-    const json = await res.json(); // <- call only once
-    const incoming: PerformanceData[] = Array.isArray(json) ? json : json.data || [];
+  useEffect(() => {
+    if (!performance.length) return;
 
-    const currentChanged = new Set<number>();
+    const changed = new Set<number>();
     const newOrChanged: PerformanceData[] = [];
 
-    incoming.forEach((item) => {
-      const prev = prevDataRef.current.find((p) => p.nodeId === item.nodeId);
+    performance.forEach((p) => {
+      const prev = prevDataRef.current.get(p.nodeId);
       if (
         !prev ||
-        prev.latency !== item.latency ||
-        prev.errorRate !== item.errorRate ||
-        prev.bandwidthUtilization !== item.bandwidthUtilization
+        prev.latency !== p.latency ||
+        prev.errorRate !== p.errorRate ||
+        prev.bandwidthUtilization !== p.bandwidthUtilization
       ) {
-        currentChanged.add(item.nodeId);
-
-        if (!topDataRef.current.find((t) => t.nodeId === item.nodeId)) {
-          newOrChanged.push(item);
-        }
+        changed.add(p.nodeId);
+        if (!topDataRef.current.find((t) => t.nodeId === p.nodeId)) newOrChanged.push(p);
       }
     });
-     if (newOrChanged.length > 0) {
-        console.log("New/Changed Performance:", newOrChanged);
-      }
 
     topDataRef.current = [
       ...newOrChanged,
-      ...topDataRef.current.filter(
-        (t) => !newOrChanged.some((n) => n.nodeId === t.nodeId)
-      ),
+      ...topDataRef.current.filter((t) => !newOrChanged.some((n) => n.nodeId === t.nodeId)),
     ];
 
-    const remaining = incoming.filter(
-      (i) => !topDataRef.current.find((t) => t.nodeId === i.nodeId)
+    const remaining = performance.filter(
+      (p) => !topDataRef.current.find((t) => t.nodeId === p.nodeId)
     );
 
-    const sorted = [...topDataRef.current, ...remaining];
+    setData([...topDataRef.current, ...remaining]);
+    setHighlightedIds(changed);
+    prevDataRef.current = new Map(performance.map((p) => [p.nodeId, p]));
 
-
-    setData(sorted);
-    setHighlightedIds(currentChanged);
-    prevDataRef.current = incoming;
-  } catch (err) {
-    console.error("Performance fetch error", err);
-  }
-};
-
-
-  useEffect(() => {
-    fetchPerformance();
-    const interval = setInterval(fetchPerformance, 45000);
-    return () => clearInterval(interval);
-  }, []);
+    const timer = setTimeout(() => setHighlightedIds(new Set()), 5000);
+    return () => clearTimeout(timer);
+  }, [performance]);
 
   const headerStyle: React.CSSProperties = {
     position: "sticky",
@@ -90,12 +68,12 @@ const fetchPerformance = async () => {
     borderBottom: "1px solid rgba(255,255,255,0.1)",
   };
 
-    const cellStyle: React.CSSProperties = {
-      padding: "10px 8px",
-      fontSize: "11px",
-      borderBottom: "1px solid rgba(255,255,255,0.03)",
-      color: "#ffffff",
-    };
+  const cellStyle: React.CSSProperties = {
+    padding: "10px 8px",
+    fontSize: "11px",
+    borderBottom: "1px solid rgba(255,255,255,0.03)",
+    color: "#ffffff",
+  };
 
   return (
     <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420 }}>
@@ -110,9 +88,9 @@ const fetchPerformance = async () => {
           <thead>
             <tr>
               <th style={headerStyle}>Node</th>
-              <th style={headerStyle}>Latency</th>
-              <th style={headerStyle}>Error Rate</th>
-              <th style={headerStyle}>bandwidth Utilization</th>
+              <th style={headerStyle}>Latency (ms)</th>
+              <th style={headerStyle}>Error Rate (%)</th>
+              <th style={headerStyle}>Bandwidth Utilization (%)</th>
               <th style={headerStyle}>Timestamp</th>
             </tr>
           </thead>
@@ -123,15 +101,17 @@ const fetchPerformance = async () => {
                 <tr
                   key={`${row.nodeId}-${row.timestamp}`}
                   style={{
-                    backgroundColor: isChanged ? "transparent": "rgba(59, 130, 246, 0.2)" ,
-                      transition: "background-color 1s ease-in-out",
+                    backgroundColor: isChanged ? "rgba(59, 130, 246, 0.2)" : "transparent",
+                    transition: "background-color 1s ease-in-out",
                   }}
                 >
                   <td style={cellStyle}>{row.nodeId}</td>
-                  <td style={cellStyle}>{row.latency} ms</td>
-                  <td style={cellStyle}>{row.errorRate} %</td>
-                  <td style={cellStyle}>{row.bandwidthUtilization} %</td>
-                  <td style={{ ...cellStyle, color: "#94a3b8" }}>{row.timestamp}</td>
+                  <td style={cellStyle}>{row.latency}</td>
+                  <td style={cellStyle}>{row.errorRate}</td>
+                  <td style={cellStyle}>{row.bandwidthUtilization}</td>
+                  <td style={{ ...cellStyle, color: "#94a3b8" }}>
+                    {new Date(row.timestamp).toLocaleString()}
+                  </td>
                 </tr>
               );
             })}

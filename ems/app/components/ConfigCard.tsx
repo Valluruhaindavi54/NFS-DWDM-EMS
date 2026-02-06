@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { AlarmChip, GlassCard } from "./ClientWrappers";
-type Config = {
+export interface Config  {
   nodeId: number;
   backupTime: string;
   status: string;
@@ -21,84 +21,62 @@ async function getData(endpoint: string) {
   return Array.isArray(data) ? data : data.data || [];
 }
 
-export default function ConfigurationCard() {
-  const [configs, setConfigs] = useState<Config[]>([]);
+export default function ConfigurationCard({ configs }: { configs: Config[] }) {
+
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
 
   const prevConfigsRef = useRef<Config[]>([]);
   const topConfigsRef = useRef<Config[]>([]); // persistent top configs
 
-  useEffect(() => {
-    const fetchConfigs = async () => {
-      try {
-        const newData = await getData("configs");
-        const changedKeys = new Set<string>();
-        const newOrChangedConfigs: Config[] = [];
+const [orderedConfigs, setOrderedConfigs] = useState<Config[]>([]);
 
-        // Detect new or changed configs
-        newData.forEach((c) => {
-          const key = `${c.nodeId}-${c.backupTime}`;
-          const old = prevConfigsRef.current.find(
-            (p) => `${p.nodeId}-${p.backupTime}` === key
-          );
+useEffect(() => {
+  if (!configs.length) return;
 
-          if (!old || old.status !== c.status || old.compliance !== c.compliance) {
-            changedKeys.add(key);
-            if (!topConfigsRef.current.find((t) => t.nodeId === c.nodeId && t.backupTime === c.backupTime)) {
-              newOrChangedConfigs.push(c);
-            }
-          }
-        });
+  const changedKeys = new Set<string>();
+  const newOrChangedConfigs: Config[] = [];
 
-        if (newOrChangedConfigs.length > 0) {
-          console.log("New/Changed Configs:", newOrChangedConfigs);
-        }
+  configs.forEach((c) => {
+    const key = `${c.nodeId}-${c.backupTime}`;
+    const old = prevConfigsRef.current.find(
+      (p) => `${p.nodeId}-${p.backupTime}` === key
+    );
 
-        // Keep old top configs
-        const oldTop = [...topConfigsRef.current];
-
-        // Prepend new/changed configs to top
-        topConfigsRef.current = [
-          ...newOrChangedConfigs,
-          ...topConfigsRef.current.filter(
-            (c) => !newOrChangedConfigs.some(
-              (nc) => nc.nodeId === c.nodeId && nc.backupTime === c.backupTime
-            )
-          ),
-        ];
-
-        // Detect removed from top
-        const removed = oldTop.filter(
-          (old) => !topConfigsRef.current.find(
-            (c) => c.nodeId === old.nodeId && c.backupTime === old.backupTime
-          )
-        );
-        if (removed.length > 0) console.log("Removed from top:", removed);
-
-        // Remaining configs
-        const otherConfigs = newData.filter(
-          (c) => !topConfigsRef.current.find(
-            (t) => t.nodeId === c.nodeId && t.backupTime === c.backupTime
-          )
-        );
-
-        const sortedConfigs = [...topConfigsRef.current, ...otherConfigs];
-
-        setConfigs(sortedConfigs);
-        setHighlighted(changedKeys);
-        prevConfigsRef.current = newData;
-
-        // Clear highlights after 3 seconds
-        setTimeout(() => setHighlighted(new Set()), 3000);
-      } catch (err) {
-        console.error("Config fetch error:", err);
+    if (!old || old.status !== c.status || old.compliance !== c.compliance) {
+      changedKeys.add(key);
+      if (!topConfigsRef.current.find(
+        (t) => t.nodeId === c.nodeId && t.backupTime === c.backupTime
+      )) {
+        newOrChangedConfigs.push(c);
       }
-    };
+    }
+  });
 
-    fetchConfigs();
-    const interval = setInterval(fetchConfigs, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  topConfigsRef.current = [
+    ...newOrChangedConfigs,
+    ...topConfigsRef.current.filter(
+      (c) => !newOrChangedConfigs.some(
+        (nc) => nc.nodeId === c.nodeId && nc.backupTime === c.backupTime
+      )
+    ),
+  ];
+
+  const otherConfigs = configs.filter(
+    (c) => !topConfigsRef.current.find(
+      (t) => t.nodeId === c.nodeId && t.backupTime === c.backupTime
+    )
+  );
+
+  const sortedConfigs = [...topConfigsRef.current, ...otherConfigs];
+
+  setOrderedConfigs(sortedConfigs);
+  setHighlighted(changedKeys);
+  prevConfigsRef.current = configs;
+
+  const timer = setTimeout(() => setHighlighted(new Set()), 3000);
+  return () => clearTimeout(timer);
+}, [configs]);
+
 
   // Color helpers
   const getStatusColor = (status: string) =>
@@ -127,12 +105,12 @@ export default function ConfigurationCard() {
     color: "#ffffff",
     };
 
-    const countCompliance = configs.reduce((config, c) => {
+    const countCompliance = orderedConfigs.reduce((config, c) => {
         config[c.compliance] = (config[c.compliance] || 0) + 1;
         return config;
     }, {} as Record<string, number>);
      
-    const countStatus = configs.reduce((config, s) => {
+    const countStatus = orderedConfigs.reduce((config, s) => {
         config[s.status] = (config[s.status] || 0) + 1;
         return config;
 
@@ -193,7 +171,7 @@ export default function ConfigurationCard() {
             </tr>
           </thead>
           <tbody>
-            {configs.map((c) => {
+            {orderedConfigs.map((c) => {
               const key = `${c.nodeId}-${c.backupTime}`;
               const isUpdated = highlighted.has(key);
               return (

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { GlassCard } from "./ClientWrappers";
 
-type InventoryNode = {
+export interface InventoryNode  {
   nodeId: number;
   rack: string;
   subrack: string;
@@ -12,71 +12,59 @@ type InventoryNode = {
   firmware: string;
 };
 
-async function getInventory(): Promise<InventoryNode[]> {
-  try {
-    const res = await fetch(`/api/proxy?endpoint=inventory`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : data?.data ?? [];
-  } catch (err) {
-    console.error("Inventory fetch error:", err);
-    return [];
-  }
-}
 
-export default function InventoryCard() {
+
+export default function InventoryCard({ inventory }: { inventory: InventoryNode[] }) {
+
   const [items, setItems] = useState<InventoryNode[]>([]);
-  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+const prevRef = useRef<Map<string, InventoryNode>>(new Map());
 
-  const prevRef = useRef<Map<string, InventoryNode>>(new Map());
+// Generate unique key per row
+const rowKey = (item: InventoryNode) =>
+  `${item.nodeId}-${item.rack}-${item.subrack}-${item.slot}-${item.port}`;
 
-  // Generate unique key per row
-  const rowKey = (item: InventoryNode) =>
-    `${item.nodeId}-${item.rack}-${item.subrack}-${item.slot}-${item.port}`;
+useEffect(() => {
+  if (!inventory || !inventory.length) return;
 
-  useEffect(() => {
-    const fetchInventory = async () => {
-      const data = await getInventory();
-      const changedKeys = new Set<string>();
-      const nodeIdsChanged = new Set<number>();
+  const changedKeys = new Set<string>();
+  const nodeIdsChanged = new Set<number>();
 
-      data.forEach((item) => {
-        const key = rowKey(item);
-        const prev = prevRef.current.get(key);
-        if (
-          !prev ||
-          prev.rack !== item.rack ||
-          prev.subrack !== item.subrack ||
-          prev.slot !== item.slot ||
-          prev.port !== item.port ||
-          prev.firmware !== item.firmware
-        ) {
-          changedKeys.add(key);
-          nodeIdsChanged.add(item.nodeId);
-        }
-      });
+  inventory.forEach((item) => {
+    const key = rowKey(item);
+    const prev = prevRef.current.get(key);
+    if (
+      !prev ||
+      prev.rack !== item.rack ||
+      prev.subrack !== item.subrack ||
+      prev.slot !== item.slot ||
+      prev.port !== item.port ||
+      prev.firmware !== item.firmware
+    ) {
+      changedKeys.add(key);
+      nodeIdsChanged.add(item.nodeId);
+    }
+  });
 
-      // Move all rows of changed nodes to top
-      const topRows: InventoryNode[] = [];
-      const restRows: InventoryNode[] = [];
+  const topRows: InventoryNode[] = [];
+  const restRows: InventoryNode[] = [];
 
-      data.forEach((item) => {
-        if (nodeIdsChanged.has(item.nodeId)) topRows.push(item);
-        else restRows.push(item);
-      });
+  inventory.forEach((item) => {
+    if (nodeIdsChanged.has(item.nodeId)) topRows.push(item);
+    else restRows.push(item);
+  });
 
-      setItems([...topRows, ...restRows]);
-      setHighlighted(changedKeys);
-      prevRef.current = new Map(data.map((n) => [rowKey(n), n]));
+  setItems([...topRows, ...restRows]);
+  setHighlighted(changedKeys);
+  prevRef.current = new Map(inventory.map((n) => [rowKey(n), n]));
 
-      // Clear highlights after 5s
-      setTimeout(() => setHighlighted(new Set()), 5000);
-    };
+  const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+  return () => clearTimeout(timer);
 
-    fetchInventory();
-    const id = setInterval(fetchInventory, 45000);
-    return () => clearInterval(id);
-  }, []);
+}, [inventory]); // Keep dependency array as [inventory] only
+
+
+ 
 
   const headerStyle: React.CSSProperties = {
     position: "sticky",

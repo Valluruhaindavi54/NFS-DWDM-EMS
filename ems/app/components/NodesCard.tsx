@@ -13,56 +13,42 @@ type Node = {
   uptime: string;
 };
 
-async function getData(endpoint: string): Promise<Node[]> {
-  try {
-    const res = await fetch(`/api/proxy?endpoint=${endpoint}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : data?.data ?? [];
-  } catch (err) {
-    console.error(`Fetch error for ${endpoint}:`, err);
-    return [];
-  }
-}
-
 export default function NodesCard() {
-  const [nodes, setNodes] = useState<Node[]>([]);
+
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-  const prevRef = useRef<Map<string, Node>>(new Map());
-  const topRef = useRef<Node[]>([]);
+const [orderedNodes, setOrderedNodes] = useState<Node[]>([]);
+const prevRef = useRef<Map<string, Node>>(new Map());
+const topRef = useRef<Node[]>([]);
+const [nodes, setNodes] = useState<any[]>([]);
+useEffect(() => {
+  if (!nodes.length) return;
 
-  useEffect(() => {
-    const fetchNodes = async () => {
-      const data = await getData("nodes");
-      const changed = new Set<string>();
-      const newTop: Node[] = [];
+  const changed = new Set<string>();
+  const newTop: Node[] = [];
 
-      data.forEach((node) => {
-        const prev = prevRef.current.get(node.id);
-        if (!prev || prev.status !== node.status || prev.uptime !== node.uptime) {
-          changed.add(node.id);
-          if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
-        }
-      });
-      console.log("Changed Nodes:", Array.from(changed));
-      topRef.current = [
-        ...newTop,
-        ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
-      ];
+  nodes.forEach((node) => {
+    const prev = prevRef.current.get(node.id);
+    if (!prev || prev.status !== node.status || prev.uptime !== node.uptime) {
+      changed.add(node.id);
+      if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
+    }
+  });
 
-      const rest = data.filter((n) => !topRef.current.some((t) => t.id === n.id));
-      setNodes([...topRef.current, ...rest]);
-      setHighlighted(changed);
-      prevRef.current = new Map(data.map((n) => [n.id, n]));
+  topRef.current = [
+    ...newTop,
+    ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
+  ];
 
-      // clear highlight after 5s
-      setTimeout(() => setHighlighted(new Set()), 5000);
-    };
+  const rest = nodes.filter((n) => !topRef.current.some((t) => t.id === n.id));
 
-    fetchNodes();
-    const id = setInterval(fetchNodes, 45000);
-    return () => clearInterval(id);
-  }, []);
+  setOrderedNodes([...topRef.current, ...rest]);
+  setHighlighted(changed);
+  prevRef.current = new Map(nodes.map((n) => [n.id, n]));
+
+  const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+  return () => clearTimeout(timer);
+}, [nodes]);
+
 
   const statusColor = (status: string) => {
     switch (status.toUpperCase()) {
@@ -115,7 +101,7 @@ export default function NodesCard() {
             </tr>
           </thead>
           <tbody>
-            {nodes.map((n) => {
+            {orderedNodes.map((n) => {
               const isChanged = highlighted.has(n.id);
               return (
                 <tr
