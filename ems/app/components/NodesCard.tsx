@@ -13,41 +13,43 @@ type Node = {
   uptime: string;
 };
 
-export default function NodesCard() {
+export default function NodesCard({ nodes }: { nodes: Node[] }) {
+
 
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
 const [orderedNodes, setOrderedNodes] = useState<Node[]>([]);
 const prevRef = useRef<Map<string, Node>>(new Map());
 const topRef = useRef<Node[]>([]);
-const [nodes, setNodes] = useState<any[]>([]);
-useEffect(() => {
-  if (!nodes.length) return;
 
-  const changed = new Set<string>();
-  const newTop: Node[] = [];
+  
+  useEffect(() => {
+    if (!nodes.length) return;
 
-  nodes.forEach((node) => {
-    const prev = prevRef.current.get(node.id);
-    if (!prev || prev.status !== node.status || prev.uptime !== node.uptime) {
-      changed.add(node.id);
-      if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
-    }
-  });
+    const changed = new Set<string>();
+    const newTop: Node[] = [];
 
-  topRef.current = [
-    ...newTop,
-    ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
-  ];
+    nodes.forEach((node) => {
+      const prev = prevRef.current.get(node.id);
+      if (!prev || prev.status !== node.status || prev.uptime !== node.uptime) {
+        changed.add(node.id);
+        if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
+      }
+    });
 
-  const rest = nodes.filter((n) => !topRef.current.some((t) => t.id === n.id));
+    topRef.current = [
+      ...newTop,
+      ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
+    ];
 
-  setOrderedNodes([...topRef.current, ...rest]);
-  setHighlighted(changed);
-  prevRef.current = new Map(nodes.map((n) => [n.id, n]));
+    const rest = nodes.filter((n) => !topRef.current.some((t) => t.id === n.id));
 
-  const timer = setTimeout(() => setHighlighted(new Set()), 5000);
-  return () => clearTimeout(timer);
-}, [nodes]);
+    setOrderedNodes([...topRef.current, ...rest]);
+    setHighlighted(changed);
+    prevRef.current = new Map(nodes.map((n) => [n.id, n]));
+
+    const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+    return () => clearTimeout(timer);
+  }, [nodes]);
 
 
   const statusColor = (status: string) => {
