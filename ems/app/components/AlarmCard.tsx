@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { GlassCard, AlarmChip } from "./ClientWrappers";
 
-type Alarm = {
+export interface Alarm {
   id: string;
   nodeId: string;
   severity: string;
@@ -12,62 +12,45 @@ type Alarm = {
   timestamp: string;
 };
 
-async function getData(endpoint: string): Promise<Alarm[]> {
-  try {
-    const res = await fetch(`/api/proxy?endpoint=${endpoint}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : data?.data ?? [];
-  } catch (err) {
-    console.error(`Fetch error for ${endpoint}:`, err);
-    return [];
-  }
-}
 
-export default function AlarmCard() {
-  const [alarms, setAlarms] = useState<Alarm[]>([]);
-  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-  const prevRef = useRef<Map<string, Alarm>>(new Map());
-  const topRef = useRef<Alarm[]>([]);
 
-  useEffect(() => {
-    const fetchAlarms = async () => {
-      const data = await getData("alarms");
-      const changed = new Set<string>();
-      const newTop: Alarm[] = [];
+export default function AlarmCard({ alarms }: { alarms: Alarm[] }) {
 
-      data.forEach((a) => {
-        const prev = prevRef.current.get(a.id);
-        if (!prev || prev.severity !== a.severity) {
-          changed.add(a.id);
-          if (!topRef.current.find((n) => n.id === a.id)) newTop.push(a);
-        }
-      });
+const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+const prevRef = useRef<Map<string, Alarm>>(new Map());
+const topRef = useRef<Alarm[]>([]);
+const [orderedAlarms, setOrderedAlarms] = useState<Alarm[]>([]);
 
-      // Build topRef: newly changed + previously changed
-      topRef.current = [
-        ...newTop,
-        ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
-      ];
+useEffect(() => {
+  if (!alarms.length) return;
 
-      // Remaining unchanged alarms
-      const rest = data.filter((n) => !topRef.current.some((t) => t.id === n.id));
+  const changed = new Set<string>();
+  const newTop: Alarm[] = [];
 
-      // Update table with changed alarms on top
-      setAlarms([...topRef.current, ...rest]);
-      setHighlighted(changed);
+  alarms.forEach((a) => {
+    const prev = prevRef.current.get(a.id);
+    if (!prev || prev.severity !== a.severity) {
+      changed.add(a.id);
+      if (!topRef.current.find((n) => n.id === a.id)) newTop.push(a);
+    }
+  });
 
-      // Save current data for next comparison
-      prevRef.current = new Map(data.map((a) => [a.id, a]));
+  topRef.current = [
+    ...newTop,
+    ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
+  ];
 
-      // Clear highlight after 5s
-      setTimeout(() => setHighlighted(new Set()), 5000);
-    };
+  const rest = alarms.filter((n) => !topRef.current.some((t) => t.id === n.id));
 
-    fetchAlarms();
-    const id = setInterval(fetchAlarms, 45000);
-    return () => clearInterval(id);
-  }, []);
+  setOrderedAlarms([...topRef.current, ...rest]);
+  setHighlighted(changed);
+
+  prevRef.current = new Map(alarms.map((a) => [a.id, a]));
+
+  const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+  return () => clearTimeout(timer);
+}, [alarms]);
+
 
   const severityColor = (severity: string) => {
     switch (severity.toUpperCase()) {
@@ -106,7 +89,7 @@ export default function AlarmCard() {
     color: "#ffffff",
   };
 
-  const counts = alarms.reduce((acc, a) => {
+ const counts = orderedAlarms.reduce((acc, a) => {
     acc[a.severity] = (acc[a.severity] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);

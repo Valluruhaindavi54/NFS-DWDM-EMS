@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { GlassCard, AlarmChip } from "./ClientWrappers";
 import type { UserChartData } from "./UserChart";
 
@@ -30,51 +30,31 @@ const actionColor = (action: string) => {
   }
 };
 
-export default function UserCard() {
-  const [actions, setActions] = useState<UserAction[]>([]);
+export default function UserCard({ actions = [] }: { actions?: UserAction[] }) {
+
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const prevRef = useRef<Map<string, UserAction>>(new Map());
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Highlight new/changed actions
   useEffect(() => {
-    const fetchActions = async () => {
-      try {
-        const res = await fetch("/api/proxy?endpoint=users", { cache: "no-store" });
-        const json = await res.json();
-        const data: UserAction[] = Array.isArray(json) ? json : json.data ?? [];
+    if (!actions.length) return;
 
-        const changed = new Set<string>();
-        const prevMap = prevRef.current;
+    const changed = new Set<string>();
+    const prevMap = prevRef.current;
 
-        data.forEach(a => {
-          const prev = prevMap.get(a.id);
-          if (!prev || prev.action !== a.action || prev.timestamp !== a.timestamp || prev.ip !== a.ip) {
-            changed.add(a.id);
-          }
-        });
-
-        const ordered = [
-          ...data.filter(a => changed.has(a.id)),
-          ...data.filter(a => !changed.has(a.id)),
-        ];
-        console.log("Changed users:", Array.from(changed));
-        setActions(ordered);
-        setHighlighted(changed);
-        prevRef.current = new Map(data.map(a => [a.id, a]));
-
-        setTimeout(() => setHighlighted(new Set()), 5000);
-      } catch (err) {
-        console.error(err);
+    actions.forEach(a => {
+      const prev = prevMap.get(a.id);
+      if (!prev || prev.action !== a.action || prev.timestamp !== a.timestamp || prev.ip !== a.ip) {
+        changed.add(a.id);
       }
-    };
+    });
 
-    fetchActions();
-    timerRef.current = setInterval(fetchActions, 45000);
+    setHighlighted(changed);
+    prevRef.current = new Map(actions.map(a => [a.id, a]));
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+    return () => clearTimeout(timer);
+  }, [actions]);
 
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -106,15 +86,11 @@ export default function UserCard() {
 
   const chartData: UserChartData[] = useMemo(() => {
     const grouped: Record<string, UserChartData> = {};
-
     actions.forEach(a => {
       const date = new Date(a.timestamp).toISOString().split("T")[0];
-      if (!grouped[date]) {
-        grouped[date] = { date, login: 0, failedLogin: 0, configChange: 0, logout: 0 };
-      }
+      if (!grouped[date]) grouped[date] = { date, login: 0, failedLogin: 0, configChange: 0, logout: 0 };
       grouped[date][a.action as keyof UserChartData]++;
     });
-
     return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
   }, [actions]);
 
@@ -140,9 +116,10 @@ export default function UserCard() {
 
   return (
     <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600, padding: 16 }}>
-            <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#ffffff" }}>
+      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#ffffff" }}>
         User Status
       </h2>
+
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         {[
           { label: "Active Users", action: "login", count: activeUsers },
