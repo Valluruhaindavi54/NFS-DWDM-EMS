@@ -13,15 +13,46 @@ type Node = {
   uptime: string;
 };
 
-export default function NodesCard({ nodes }: { nodes: Node[] }) {
+// API helper
+async function getData(endpoint: string) {
+  const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+  });
+  if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : data.data || [];
+}
 
-
+export default function NodesCard() {
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [orderedNodes, setOrderedNodes] = useState<Node[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-const [orderedNodes, setOrderedNodes] = useState<Node[]>([]);
-const prevRef = useRef<Map<string, Node>>(new Map());
-const topRef = useRef<Node[]>([]);
 
-  
+  const prevRef = useRef<Map<string, Node>>(new Map());
+  const topRef = useRef<Node[]>([]);
+
+  // 🔁 Fetch every 45s
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    const fetchNodes = async () => {
+      try {
+        const data = await getData("nodes"); // <-- your endpoint
+        setNodes(data);
+      } catch (err) {
+        console.error("Node fetch failed", err);
+      }
+    };
+
+    fetchNodes(); // initial load
+    timer = setInterval(fetchNodes, 45000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // 🔄 Reorder + highlight logic (same idea as ConfigurationCard)
   useEffect(() => {
     if (!nodes.length) return;
 
@@ -30,27 +61,33 @@ const topRef = useRef<Node[]>([]);
 
     nodes.forEach((node) => {
       const prev = prevRef.current.get(node.id);
+
       if (!prev || prev.status !== node.status || prev.uptime !== node.uptime) {
         changed.add(node.id);
-        if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
+        if (!topRef.current.find((n) => n.id === node.id)) {
+          newTop.push(node);
+        }
       }
     });
 
     topRef.current = [
       ...newTop,
-      ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
+      ...topRef.current.filter(
+        (n) => !newTop.some((nn) => nn.id === n.id)
+      ),
     ];
 
-    const rest = nodes.filter((n) => !topRef.current.some((t) => t.id === n.id));
+    const rest = nodes.filter(
+      (n) => !topRef.current.some((t) => t.id === n.id)
+    );
 
     setOrderedNodes([...topRef.current, ...rest]);
     setHighlighted(changed);
     prevRef.current = new Map(nodes.map((n) => [n.id, n]));
 
-    const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+    const timer = setTimeout(() => setHighlighted(new Set()), 3000);
     return () => clearTimeout(timer);
   }, [nodes]);
-
 
   const statusColor = (status: string) => {
     switch (status.toUpperCase()) {
@@ -96,9 +133,7 @@ const topRef = useRef<Node[]>([]);
           <thead>
             <tr>
               {["Name", "IP", "Status", "Type", "Region", "Uptime"].map((h) => (
-                <th key={h} style={headerStyle}>
-                  {h}
-                </th>
+                <th key={h} style={headerStyle}>{h}</th>
               ))}
             </tr>
           </thead>

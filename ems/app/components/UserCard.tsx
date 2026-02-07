@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { GlassCard, AlarmChip } from "./ClientWrappers";
 import type { UserChartData } from "./UserChart";
 
@@ -12,6 +12,17 @@ export type UserAction = {
   timestamp: string;
   ip: string;
 };
+
+async function getData(endpoint: string) {
+  const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+  });
+  if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : data.data || [];
+}
 
 const UserChart = dynamic(() => import("./UserChart"), { ssr: false });
 
@@ -30,61 +41,72 @@ const actionColor = (action: string) => {
   }
 };
 
-export default function UserCard({ actions = [] }: { actions?: UserAction[] }) {
-
+export default function UserCard() {
+  const [actions, setActions] = useState<UserAction[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+
   const prevRef = useRef<Map<string, UserAction>>(new Map());
+  const topRef = useRef<UserAction[]>([]);
 
-  // Highlight new/changed actions
   useEffect(() => {
-    if (!actions.length) return;
+    let mounted = true;
 
-    const changed = new Set<string>();
-    const prevMap = prevRef.current;
+    const fetchActions = async () => {
+      try {
+        const newData: UserAction[] = await getData("users");
+        const changed = new Set<string>();
+        const newTop: UserAction[] = [];
 
-    actions.forEach(a => {
-      const prev = prevMap.get(a.id);
-      if (!prev || prev.action !== a.action || prev.timestamp !== a.timestamp || prev.ip !== a.ip) {
-        changed.add(a.id);
+        newData.forEach(a => {
+          const prev = prevRef.current.get(a.id);
+          if (!prev || prev.action !== a.action || prev.timestamp !== a.timestamp || prev.ip !== a.ip) {
+            changed.add(a.id);
+            if (!topRef.current.find(t => t.id === a.id)) newTop.push(a);
+          }
+        });
+
+        topRef.current = [
+          ...newTop,
+          ...topRef.current.filter(t => !newTop.some(n => n.id === t.id))
+        ];
+
+        const rest = newData.filter(a => !topRef.current.some(t => t.id === a.id));
+        const finalList = [...topRef.current, ...rest];
+
+        if (!mounted) return;
+
+        setActions(finalList);
+        setHighlighted(changed);
+        prevRef.current = new Map(newData.map(a => [a.id, a]));
+
+        setTimeout(() => setHighlighted(new Set()), 5000);
+      } catch (err) {
+        console.error("User actions fetch error:", err);
       }
-    });
+    };
 
-    setHighlighted(changed);
-    prevRef.current = new Map(actions.map(a => [a.id, a]));
+    fetchActions();
+    const interval = setInterval(fetchActions, 45000); // 45 sec refresh
 
-    const timer = setTimeout(() => setHighlighted(new Set()), 5000);
-    return () => clearTimeout(timer);
-  }, [actions]);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const activeUsers = useMemo(
-    () =>
-      new Set(
-        actions
-          .filter(a => a.action === "login" && new Date(a.timestamp) > last24h)
-          .map(a => a.username)
-      ).size,
-    [actions]
-  );
+  const activeUsers = new Set(
+    actions.filter(a => a.action === "login" && new Date(a.timestamp) > last24h)
+      .map(a => a.username)
+  ).size;
 
-  const failedLogins = useMemo(
-    () => actions.filter(a => a.action === "failedLogin").length,
-    [actions]
-  );
+  const failedLogins = actions.filter(a => a.action === "failedLogin").length;
+  const configChanges = actions.filter(a => a.action === "configChange").length;
+  const logouts = actions.filter(a => a.action === "logout").length;
 
-  const configChanges = useMemo(
-    () => actions.filter(a => a.action === "configChange").length,
-    [actions]
-  );
-
-  const logouts = useMemo(
-    () => actions.filter(a => a.action === "logout").length,
-    [actions]
-  );
-
-  const chartData: UserChartData[] = useMemo(() => {
+  const chartData: UserChartData[] = React.useMemo(() => {
     const grouped: Record<string, UserChartData> = {};
     actions.forEach(a => {
       const date = new Date(a.timestamp).toISOString().split("T")[0];

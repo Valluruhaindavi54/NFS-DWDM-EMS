@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { AlarmChip, GlassCard } from "./ClientWrappers";
-export interface Config  {
+import { GlassCard, AlarmChip } from "./ClientWrappers";
+
+export interface Config {
   nodeId: number;
   backupTime: string;
   status: string;
   compliance: string;
-};
+}
 
-// API fetch helper
+// Helper: unique key per config
+const configKey = (c: Config) => `${c.nodeId}-${c.backupTime}`;
+
+// API fetch helper (optional if fetching externally)
 async function getData(endpoint: string) {
   const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
   const res = await fetch(url, {
@@ -22,65 +26,60 @@ async function getData(endpoint: string) {
 }
 
 export default function ConfigurationCard({ configs }: { configs: Config[] }) {
-
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+  const prevConfigsRef = useRef<Map<string, Config>>(new Map());
+  const topConfigsRef = useRef<Config[]>([]);
+  const [orderedConfigs, setOrderedConfigs] = useState<Config[]>([]);
 
-  const prevConfigsRef = useRef<Config[]>([]);
-  const topConfigsRef = useRef<Config[]>([]); // persistent top configs
+  useEffect(() => {
+    if (!configs.length) return;
 
-const [orderedConfigs, setOrderedConfigs] = useState<Config[]>([]);
+    const changedKeys = new Set<string>();
+    const newTop: Config[] = [];
 
-useEffect(() => {
-  if (!configs.length) return;
+    configs.forEach((c) => {
+      const key = configKey(c);
+      const prev = prevConfigsRef.current.get(key);
 
-  const changedKeys = new Set<string>();
-  const newOrChangedConfigs: Config[] = [];
+      // Detect new or updated
+      if (!prev || prev.status !== c.status || prev.compliance !== c.compliance) {
+        changedKeys.add(key);
+        if (!topConfigsRef.current.find((t) => configKey(t) === key)) {
+          newTop.push(c);
+        }
+      }
+    });
 
-  configs.forEach((c) => {
-    const key = `${c.nodeId}-${c.backupTime}`;
-    const old = prevConfigsRef.current.find(
-      (p) => `${p.nodeId}-${p.backupTime}` === key
+    // Update top configs
+    topConfigsRef.current = [
+      ...newTop,
+      ...topConfigsRef.current.filter(
+        (t) => !newTop.some((n) => configKey(n) === configKey(t))
+      ),
+    ];
+
+    // Remaining configs
+    const rest = configs.filter(
+      (c) => !topConfigsRef.current.find((t) => configKey(t) === configKey(c))
     );
 
-    if (!old || old.status !== c.status || old.compliance !== c.compliance) {
-      changedKeys.add(key);
-      if (!topConfigsRef.current.find(
-        (t) => t.nodeId === c.nodeId && t.backupTime === c.backupTime
-      )) {
-        newOrChangedConfigs.push(c);
-      }
-    }
-  });
+    const finalList = [...topConfigsRef.current, ...rest];
 
-  topConfigsRef.current = [
-    ...newOrChangedConfigs,
-    ...topConfigsRef.current.filter(
-      (c) => !newOrChangedConfigs.some(
-        (nc) => nc.nodeId === c.nodeId && nc.backupTime === c.backupTime
-      )
-    ),
-  ];
+    // Update state
+    setOrderedConfigs(finalList);
+    setHighlighted(changedKeys);
+    prevConfigsRef.current = new Map(configs.map((c) => [configKey(c), c]));
 
-  const otherConfigs = configs.filter(
-    (c) => !topConfigsRef.current.find(
-      (t) => t.nodeId === c.nodeId && t.backupTime === c.backupTime
-    )
-  );
+    console.log("Updated configs:", Array.from(changedKeys)); // ✅ print updated keys
 
-  const sortedConfigs = [...topConfigsRef.current, ...otherConfigs];
-
-  setOrderedConfigs(sortedConfigs);
-  setHighlighted(changedKeys);
-  prevConfigsRef.current = configs;
-
-  const timer = setTimeout(() => setHighlighted(new Set()), 3000);
-  return () => clearTimeout(timer);
-}, [configs]);
-
+    const timer = setTimeout(() => setHighlighted(new Set()), 3000); // clear highlight
+    return () => clearTimeout(timer);
+  }, [configs]);
 
   // Color helpers
   const getStatusColor = (status: string) =>
     status === "SUCCESS" ? "#22c55e" : status === "FAILED" ? "#ef4444" : "#facc15";
+
   const getComplianceColor = (compliance: string) =>
     compliance === "Compliant" ? "#22c55e" : "#ef4444";
 
@@ -103,64 +102,33 @@ useEffect(() => {
     fontSize: "11px",
     borderBottom: "1px solid rgba(255,255,255,0.03)",
     color: "#ffffff",
-    };
+  };
 
-    const countCompliance = orderedConfigs.reduce((config, c) => {
-        config[c.compliance] = (config[c.compliance] || 0) + 1;
-        return config;
-    }, {} as Record<string, number>);
-     
-    const countStatus = orderedConfigs.reduce((config, s) => {
-        config[s.status] = (config[s.status] || 0) + 1;
-        return config;
+  // Count summaries
+  const countCompliance = orderedConfigs.reduce((acc, c) => {
+    acc[c.compliance] = (acc[c.compliance] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
-    }, {} as Record<string, number>);
-
-    const complianceColor = (compliance: string) => {
-       
-        if (compliance.toUpperCase() === "COMPLIANT" ) {
-            return "#22c55e";
-            
-        }
-        else {
-            return "#ff0000";
-        }
-    }
-    const statusColor = (status: string) => {
-        if (status.toUpperCase() === "SUCCESS") {
-            return "#22c55e";
-        }
-        else {
-            return "#ff0000";
-        }
-    }
-
+  const countStatus = orderedConfigs.reduce((acc, c) => {
+    acc[c.status] = (acc[c.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600 }}>
       <h3 style={{ color: "#ffffff", marginBottom: 12 }}>Backup Configurations</h3>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  {Object.entries(countCompliance).map(([compliance, countCompliance]) => (
-                    <AlarmChip
-                      key={compliance}
-                      label={compliance}
-                      count={countCompliance}
-                      color={complianceColor(compliance)}
-                    />
-                  ))}
-              {Object.entries(countStatus).map(([status, countStatus]) => (
-                  <AlarmChip
-                      key={status}
-                      label={status}
-                      count={countStatus}
-                  color={statusColor(status)}/>
-              )) }
-              
-          </div>
-        
-          <div style={{ flex: 1, overflowY: "auto", maxHeight: 600 }}>
-            
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {Object.entries(countCompliance).map(([compliance, count]) => (
+          <AlarmChip key={compliance} label={compliance} count={count} color={getComplianceColor(compliance)} />
+        ))}
+        {Object.entries(countStatus).map(([status, count]) => (
+          <AlarmChip key={status} label={status} count={count} color={getStatusColor(status)} />
+        ))}
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", maxHeight: 600 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -172,7 +140,7 @@ useEffect(() => {
           </thead>
           <tbody>
             {orderedConfigs.map((c) => {
-              const key = `${c.nodeId}-${c.backupTime}`;
+              const key = configKey(c);
               const isUpdated = highlighted.has(key);
               return (
                 <tr
@@ -182,16 +150,10 @@ useEffect(() => {
                     transition: "background-color 1s ease-in-out",
                   }}
                 >
-                  <td style={{ ...cellStyle, fontWeight: "500" }}>
-                    {c.nodeId} {isUpdated && " ●"}
-                  </td>
-                  <td style={{ ...cellStyle }}>{new Date(c.backupTime).toLocaleString()}</td>
-                  <td style={{ ...cellStyle, fontWeight: "bold", color: getStatusColor(c.status) }}>
-                    {c.status}
-                  </td>
-                  <td style={{ ...cellStyle, fontWeight: "bold", color: getComplianceColor(c.compliance) }}>
-                    {c.compliance}
-                  </td>
+                  <td style={{ ...cellStyle, fontWeight: 500 }}>{c.nodeId} {isUpdated && "●"}</td>
+                  <td style={cellStyle}>{new Date(c.backupTime).toLocaleString()}</td>
+                  <td style={{ ...cellStyle, fontWeight: "bold", color: getStatusColor(c.status) }}>{c.status}</td>
+                  <td style={{ ...cellStyle, fontWeight: "bold", color: getComplianceColor(c.compliance) }}>{c.compliance}</td>
                 </tr>
               );
             })}

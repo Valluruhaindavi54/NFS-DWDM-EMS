@@ -12,13 +12,25 @@ export interface PerformanceData {
   bandwidthUtilization: number;
 }
 
+
+// API fetch helper
+async function getData(endpoint: string) {
+  const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+  });
+  if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : data.data || [];
+}
 export default function PerformanceCard({ performance }: { performance: PerformanceData[] }) {
   const [data, setData] = useState<PerformanceData[]>([]);
   const [highlightedIds, setHighlightedIds] = useState<Set<number>>(new Set());
 
   const prevDataRef = useRef<Map<number, PerformanceData>>(new Map());
   const topDataRef = useRef<PerformanceData[]>([]);
-
+const [orderedPerformance, setOrdedPerformance] = useState<PerformanceData[]>([]);
   useEffect(() => {
     if (!performance.length) return;
 

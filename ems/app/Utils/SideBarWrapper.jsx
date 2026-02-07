@@ -23,7 +23,7 @@ const SideBarWrapper = ({ children, SelectedIp }) => {
           </span>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-7">
           <HomeComponent
             showZone={showZone}
             toggleZone={toggleZone}

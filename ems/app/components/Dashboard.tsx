@@ -56,9 +56,14 @@ useEffect(() => {
     setConfigs(c);
     setPerformance(p);
   };
-
-  fetchSummary();
-  setTimeout(fetchHeavy, 1000); // stagger heavy fetch slightly
+  const fetchAll = async () => {
+    fetchSummary();
+  setTimeout(fetchHeavy, 1000); 
+  }
+  fetchAll();
+  const interval = setInterval(fetchAll, 45000);
+  return () => clearInterval(interval);
+  
 }, []);
 
   // header stays visible, cards load silently
