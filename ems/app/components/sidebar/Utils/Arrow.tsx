@@ -4,7 +4,7 @@ import React from 'react';
 const Arrow = ({ isOpen }) => {
   return (
     <svg
-      className={`w-4 h-4 transform transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+      className={`w-4 h-4 text-blue-300 transform transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"

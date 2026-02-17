@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import ThreeDModal from "./ThreeDModal";
-import MagneticButton from "../../MagneticButton";
-
+import MagneticButton from "@/app/MagneticButton";
+import ConfirmationModal from "./ConfirmationModal";
 /* ---------------- ADD ZONE MODAL ---------------- */
 const AddZoneModal = ({
   showAddZoneModal,
@@ -14,17 +14,22 @@ const AddZoneModal = ({
   setErrorMessage,
   setSuccessMessage,
   loadingOperation,
-  confirmAddZone,
+  confirmAddZone
 }) => {
   const closeModal = () => {
     setShowAddZoneModal(false);
     setNewZoneName("");
-    setErrorMessage("");
+    setErrorMessage("");   // ✅ only use the setter passed as prop
     setSuccessMessage("");
   };
 
+
   return (
-    <ThreeDModal show={showAddZoneModal} title="Add Zone" onClose={closeModal}>
+    <ThreeDModal
+      show={showAddZoneModal}
+      title="Add Zone"
+      onClose={closeModal}
+    >
       <div className="p-4">
         {errorMessage && (
           <div className="mb-4 p-2 bg-red-100 text-red-600 rounded text-sm shadow-inner">
@@ -48,7 +53,7 @@ const AddZoneModal = ({
             value={newZoneName}
             onChange={(e) => {
               setNewZoneName(e.target.value);
-              setErrorMessage("");
+              setErrorMessage("");   // reset on change
               setSuccessMessage("");
             }}
             disabled={loadingOperation}
@@ -58,6 +63,7 @@ const AddZoneModal = ({
               w-full px-3 py-2 rounded-lg
               bg-gray-50
               border
+              text-black
               shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]
               focus:outline-none
               focus:shadow-[0_0_0_3px_rgba(59,130,246,0.35)]
@@ -81,7 +87,8 @@ const AddZoneModal = ({
         {/* Add Zone */}
         <MagneticButton
           onClick={confirmAddZone}
-          disabled={!newZoneName.trim() || loadingOperation || successMessage}
+         disabled={!newZoneName.trim() || loadingOperation}
+
           className="
             px-4 py-2 rounded-lg text-white
             bg-blue-600 hover:bg-blue-700

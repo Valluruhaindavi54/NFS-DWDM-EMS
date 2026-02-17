@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import SideBarWrapper from "../Utils/SideBarWrapper.jsx";
+import SideBarWrapper from "../components/sidebar/SideBarWrapper";
 import { SERVERID } from "../Constaint.js";
-import Dashboard from "../components/Dashboard.tsx";
+import Dashboard from "../components/Dashboard";
 
 export default function Simulator() {
   const router = useRouter();
