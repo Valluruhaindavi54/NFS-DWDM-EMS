@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { SERVERID as SERVER_CONST } from "@/app/Constaint";
+import { useAbortOnRouteChange } from "@/app/useAbortOnRouteChange";
 
 export const useDataFetchingEffects = ({
   SERVERID,
@@ -11,10 +11,6 @@ export const useDataFetchingEffects = ({
   nodeZoneId,
   nodeCircleId,
   editNodeZoneId,
-  showRemoveNodeModal,
-  showAddZoneModal,
-  showRemoveZoneModal,
-  showEditZoneModal,
   setZones,
   setCircles,
   setNodes,
@@ -22,172 +18,141 @@ export const useDataFetchingEffects = ({
   setIpStatus,
   nodes,
   circles,
+  isZonesPage,
 }) => {
-  // Stable values for optional props
-  const removeNodeZoneId = showRemoveNodeModal?.zoneId ?? null;
-  const removeNodeCircleId = showRemoveNodeModal?.circleId ?? null;
+  const { addController } = useAbortOnRouteChange();
 
-  // ---------------------------
-  // Fetch zones
-  // ---------------------------
+  // ---------------- Fetch Zones ----------------
   useEffect(() => {
-    if (!showZone) return;
+    if (!showZone || isZonesPage) return;
+
+    const controller = new AbortController();
+    addController(controller);
 
     const fetchZones = async () => {
-      setLoading(prev => ({ ...prev, zones: true }));
+      setLoading((prev) => ({ ...prev, zones: true }));
       try {
         const token = JSON.parse(localStorage.getItem("emsToken") || "null");
-        const response = await fetch(`http://${SERVERID}/api/v1/zones`, {
+        const res = await fetch(`http://${SERVERID}/api/v1/zones`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
-
-        if (!response.ok) throw new Error("Failed to fetch zones");
-
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data)) {
-          setZones(prevZones => {
-            const existingIds = new Set(prevZones.map(z => z.zoneId));
-            const merged = [...prevZones];
-            data.data.forEach(z => {
-              if (!existingIds.has(z.zoneId)) merged.push(z);
-            });
-            return merged;
-          });
-        }
-      } catch (err) {
-        console.error("Error fetching zones:", err);
+        if (!res.ok) throw new Error("Failed to fetch zones");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) setZones(data.data);
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error(err);
       } finally {
-        setLoading(prev => ({ ...prev, zones: false }));
+        setLoading((prev) => ({ ...prev, zones: false }));
       }
     };
 
     fetchZones();
-  }, [showZone, SERVERID, setZones, setLoading]);
+  }, [showZone, SERVERID, setZones, setLoading, isZonesPage]);
 
-  // ---------------------------
-  // Fetch circles
-  // ---------------------------
+  // ---------------- Fetch Circles ----------------
   useEffect(() => {
+    if (isZonesPage) return;
+
+    const controller = new AbortController();
+    addController(controller);
+
     const fetchCircles = async () => {
       const newCircles = { ...circles };
-
       const zonesToFetch = [
-        ...Object.keys(showCircle || {}).filter(zoneId => showCircle[zoneId]),
+        ...Object.keys(showCircle || {}).filter((z) => showCircle[z]),
         ...(zoneToEdit && !circles[zoneToEdit] ? [zoneToEdit] : []),
         ...(nodeZoneId && !circles[nodeZoneId] ? [nodeZoneId] : []),
         ...(editNodeZoneId && !circles[editNodeZoneId] ? [editNodeZoneId] : []),
-        ...(removeNodeZoneId && !circles[removeNodeZoneId] ? [removeNodeZoneId] : []),
       ];
+      if (!zonesToFetch.length) return;
 
-      if (zonesToFetch.length === 0) return;
-
-      setLoading(prev => ({ ...prev, circles: true }));
+      setLoading((prev) => ({ ...prev, circles: true }));
 
       try {
         for (const zoneId of zonesToFetch) {
           if (!newCircles[zoneId]) {
             const token = JSON.parse(localStorage.getItem("emsToken") || "null");
-            const response = await fetch(`http://${SERVERID}/api/v1/circles/${zoneId}`, {
+            const res = await fetch(`http://${SERVERID}/api/v1/circles/${zoneId}`, {
               headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal,
             });
-
-            if (response.ok) {
-              const data = await response.json();
+            if (res.ok) {
+              const data = await res.json();
               const circleMap: Record<number, string> = {};
               if (data.success && Array.isArray(data.data)) {
-                data.data.forEach(circle => {
+                data.data.forEach((circle) => {
                   circleMap[circle.circleId] = circle.circleName;
                 });
               }
               newCircles[zoneId] = circleMap;
-            } else {
-              newCircles[zoneId] = {};
-            }
+            } else newCircles[zoneId] = {};
           }
         }
         setCircles(newCircles);
-      } catch (err) {
-        console.error("Error fetching circles:", err);
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error(err);
       } finally {
-        setLoading(prev => ({ ...prev, circles: false }));
+        setLoading((prev) => ({ ...prev, circles: false }));
       }
     };
 
     fetchCircles();
-  }, [
-    showCircle,
-    zoneToEdit,
-    nodeZoneId,
-    editNodeZoneId,
-    removeNodeZoneId,
-    circles,
-    SERVERID,
-    setCircles,
-    setLoading,
-  ]);
+  }, [showCircle, zoneToEdit, nodeZoneId, editNodeZoneId, circles, SERVERID, setCircles, setLoading, isZonesPage]);
 
-  // ---------------------------
-  // Fetch nodes
-  // ---------------------------
+  // ---------------- Fetch Nodes ----------------
   useEffect(() => {
+    if (isZonesPage) return;
+
+    const controller = new AbortController();
+    addController(controller);
+
     const fetchNodesForCircles = async () => {
-      const circlesToFetch = [
-        ...Object.keys(showNode || {}).filter(circleId => showNode[circleId]),
-        ...(removeNodeCircleId &&
-        !nodes[removeNodeCircleId] &&
-        !nodes[Number(removeNodeCircleId)]
-          ? [removeNodeCircleId]
-          : []),
-      ];
+      const circlesToFetch = [...Object.keys(showNode || {}).filter((c) => showNode[c])];
+      if (!circlesToFetch.length) return;
 
-      if (circlesToFetch.length === 0) return;
-
-      setLoading(prev => ({ ...prev, nodes: true }));
+      setLoading((prev) => ({ ...prev, nodes: true }));
 
       try {
         const newNodes = { ...nodes };
-
         for (const circleId of circlesToFetch) {
-          const numericCircleId = Number(circleId);
-          const existingNodes = nodes[circleId] || nodes[numericCircleId];
-
-          if (!existingNodes || existingNodes.length === 0 || showNode[circleId] || showNode[numericCircleId]) {
+          const numericId = Number(circleId);
+          if (!newNodes[numericId] || newNodes[numericId].length === 0) {
             const token = JSON.parse(localStorage.getItem("emsToken") || "null");
-            const response = await fetch(`http://${SERVERID}/api/v1/nodes/${numericCircleId}/1/100`, {
+            const res = await fetch(`http://${SERVERID}/api/v1/nodes/${numericId}/1/100`, {
               headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal,
             });
-
-            if (response.ok) {
-              const data = await response.json();
+            if (res.ok) {
+              const data = await res.json();
               if (data.success && Array.isArray(data.data)) {
-                newNodes[numericCircleId] = data.data;
-                data.data.forEach(node => {
-                  setIpStatus(prev => ({ ...prev, [node.nodeIpAddress]: "loading" }));
+                newNodes[numericId] = data.data;
+                data.data.forEach((node) => {
+                  setIpStatus((prev) => ({ ...prev, [node.nodeIpAddress]: "loading" }));
                 });
               }
             }
           }
         }
-
         setNodes(newNodes);
-      } catch (err) {
-        console.error("Error fetching nodes:", err);
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error(err);
       } finally {
-        setLoading(prev => ({ ...prev, nodes: false }));
+        setLoading((prev) => ({ ...prev, nodes: false }));
       }
     };
 
     fetchNodesForCircles();
-  }, [showNode, removeNodeCircleId, nodes, SERVERID, setNodes, setLoading, setIpStatus]);
+  }, [showNode, nodes, SERVERID, setNodes, setLoading, setIpStatus, isZonesPage]);
 
-  // ---------------------------
-  // Fetch nodes for AdjacentNE dropdown
-  // ---------------------------
+  // ---------------- Fetch Nodes for AdjacentNE ----------------
   useEffect(() => {
-    if (!nodeCircleId) return;
+    if (isZonesPage || !nodeCircleId) return;
+
+    const controller = new AbortController();
+    addController(controller);
 
     const numericNodeCircleId = Number(nodeCircleId);
-
     if ((nodes[nodeCircleId]?.length || nodes[numericNodeCircleId]?.length)) return;
 
     const fetchNodesForAdjacentNE = async () => {
@@ -195,20 +160,16 @@ export const useDataFetchingEffects = ({
         const token = JSON.parse(localStorage.getItem("emsToken") || "null");
         const res = await fetch(`http://${SERVERID}/api/v1/nodes/${numericNodeCircleId}/1/100`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
-
         const json = await res.json();
         const nodeList = json?.data?.content || json?.data || [];
-
-        setNodes(prev => ({
-          ...prev,
-          [numericNodeCircleId]: nodeList,
-        }));
-      } catch (err) {
-        console.error("Failed to fetch nodes for Adjacent NE", err);
+        setNodes((prev) => ({ ...prev, [numericNodeCircleId]: nodeList }));
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error(err);
       }
     };
 
     fetchNodesForAdjacentNE();
-  }, [nodeCircleId, nodes, SERVERID, setNodes]);
+  }, [nodeCircleId, nodes, SERVERID, setNodes, isZonesPage]);
 };

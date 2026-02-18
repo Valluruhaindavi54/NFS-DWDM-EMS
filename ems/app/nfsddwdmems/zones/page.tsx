@@ -1,7 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
+import Image from "next/image";
+import {useRouter} from "next/navigation";
+
 import SideBarWrapper from "../../components/sidebar/SideBarWrapper";
 import { SERVERID } from "@/app/Constaint";
+import AddZoneModal from "@/app/components/sidebar/Modals/AddZoneModel";
+import EditZoneModel from "@/app/components/sidebar/Modals/EditZoneModel";
+import DeleteZoneModal from "@/app/components/sidebar/Modals/DeleteZoneModal";
 
 export default function ZonesPage() {
   const [zones, setZones] = useState<any[]>([]);
@@ -12,6 +18,15 @@ export default function ZonesPage() {
   const [searchText, setSearchText] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const router=useRouter();
+
+  const [showEditForm, setShowEditForm] = useState(false);
+const [zoneToEdit, setZoneToEdit] = useState("");
+const [editedZoneName, setEditedZoneName] = useState("");
+const [loadingOperation, setLoadingOperation] = useState(false);
+const [showRemoveZoneModal, setShowRemoveZoneModal] = useState(false);
+const [zoneToDelete, setZoneToDelete] = useState<number | null>(null);
+const [zoneToDeleteName, setZoneToDeleteName] = useState<string | null>(null);
 
   // ---------------- FETCH ZONES ----------------
   const fetchZones = async () => {
@@ -113,183 +128,208 @@ export default function ZonesPage() {
     }
   };
 
-  return (
-    <SideBarWrapper>
-     <div className="bg-white p-4 sm:p-6 min-h-screen w-full">
+  // --------------------EDit Zone--------------------
+  const confirmEditZone = async () => {
+  if (!zoneToEdit || !editedZoneName.trim()) return;
 
-        {/* Header */}
-<div className="flex justify-between items-center mb-4 pt-2 sm:pt-0">
+  try {
+    setLoadingOperation(true);
+    setErrorMessage("");
+    setSuccessMessage("");
 
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold text-gray-800">Zones</h1>
-            <span className="px-3 py-1 bg-gray-100 rounded-md text-sm text-gray-700">
-              Results {filteredZones.length}
-            </span>
-            <button className="px-3 py-1 border rounded-md text-sm text-gray-700 hover:bg-gray-50">
-              Filters
-            </button>
-          </div>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)} // ← toggle behavior
-            className="px-4 py-2 rounded-md bg-teal-600 text-white hover:bg-teal-700"
-          >
-            {showAddForm ? "Cancel" : "+ Add Zone"}
-          </button>
-        </div>
+    const token = JSON.parse(localStorage.getItem("emsToken") || "null");
+    if (!token) return setErrorMessage("Authentication token missing");
 
-        {/* Filters Panel */}
-        <div className="border rounded-lg p-6 mb-6 bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search
-              </label>
-              <input
-                type="text"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md text-black bg-white placeholder-gray-400 focus:outline-none focus:ring focus:ring-blue-200"
-                placeholder="Search by zone name"
-              />
-            </div>
+    const res = await fetch(`http://${SERVERID}/api/v1/zones/${zoneToEdit}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ zoneName: editedZoneName.trim() }),
+    });
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Saved Filter
-              </label>
-              <select className="w-full px-3 py-2 border rounded-md text-black bg-white focus:outline-none focus:ring focus:ring-blue-200">
-                <option value="">Select</option>
-              </select>
-            </div>
-          </div>
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || "Failed to edit zone");
 
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Reset
-            </button>
-            <button
-              onClick={handleSearch}
-              className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
-            >
-              Search
-            </button>
-          </div>
-        </div>
+    setSuccessMessage("Zone edited successfully!");
+    setTimeout(() => setSuccessMessage(""), 1500);
+    setShowEditForm(false);
+    setZoneToEdit("");
+    setEditedZoneName("");
+    fetchZones();
+  } catch (err: any) {
+    setErrorMessage(err.message || "Failed to edit zone");
+  } finally {
+    setLoadingOperation(false);
+  }
+};
+// Delete logic
+const handleDeleteZone = async () => {
+  if (!zoneToDelete) return;
 
-        {/* Add Zone Panel – now matches Filters panel style */}
-        {showAddForm && (
-          <div className="border rounded-lg p-6 mb-6 bg-white">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Zone</h2>
+  try {
+    const token = JSON.parse(localStorage.getItem("emsToken") || "null");
 
-            {errorMessage && (
-              <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded border border-red-200">
-                {errorMessage}
-              </div>
-            )}
-            {successMessage && (
-              <div className="mb-4 text-sm text-green-600 bg-green-50 p-3 rounded border border-green-200">
-                {successMessage}
-              </div>
-            )}
+    const res = await fetch(`http://${SERVERID}/api/v1/zones/${zoneToDelete}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Zone Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newZoneName}
-                  onChange={(e) => setNewZoneName(e.target.value)}
-                  placeholder="Enter zone name"
-                  className="w-full px-3 py-2 border rounded-md text-black bg-white placeholder-gray-400 focus:outline-none focus:ring focus:ring-blue-200"
-                />
-              </div>
+    if (!res.ok) throw new Error("Failed to delete zone");
 
-              {/* You can add more fields here later (description, etc.) */}
-              <div>{/* empty for layout balance */}</div>
-            </div>
+    setShowRemoveZoneModal(false);
+    setZoneToDelete(null);
+    fetchZones();
+     
+    setSuccessMessage("Zone deleted successfully!");
+    setTimeout(() => setSuccessMessage(""), 1500);
+  } catch (err) {
+    console.error("Delete failed:", err);
+    alert("Failed to delete zone");
+  }
+};
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddForm(false);
-                  setNewZoneName("");
-                  setErrorMessage("");
-                  setSuccessMessage("");
-                }}
-                className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddZone}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Add Zone
-              </button>
-            </div>
-          </div>
-        )}
+  return (<SideBarWrapper>
+  <div className="bg-white p-4 sm:p-6 min-h-screen w-full">
 
-        {/* Zones Table */}
-        <div className="border rounded-md overflow-hidden">
-          <table className="w-full border-collapse">
-            <thead className="bg-gray-50 text-left text-sm text-gray-700">
-              <tr>
-                <th className="p-3 border-b">
-                  <input type="checkbox" />
-                </th>
-                <th className="p-3 border-b">NAME</th>
-                <th className="p-3 border-b">SITES</th>
-                <th className="p-3 border-b">DESCRIPTION</th>
-                <th className="p-3 border-b text-right">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
-                    Loading zones...
-                  </td>
-                </tr>
-              ) : filteredZones.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
-                    No zones found
-                  </td>
-                </tr>
-              ) : (
-                filteredZones.map((zone) => (
-                  <tr key={zone.zoneId} className="hover:bg-gray-50">
-                    <td className="p-3 border-b">
-                      <input type="checkbox" />
-                    </td>
-                    <td className="p-3 border-b">
-                      <span className="text-blue-600 hover:underline cursor-pointer">
-                        {zone.zoneName}
-                      </span>
-                    </td>
-                    <td className="p-3 border-b">{zone.siteCount || 0}</td>
-                    <td className="p-3 border-b">—</td>
-                    <td className="p-3 border-b text-right flex gap-2 justify-end">
-                      <button className="px-3 py-1 bg-orange-400 text-white rounded hover:bg-orange-500">
-                        ✏
-                      </button>
-                      <button className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
-                        🗑
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+    {/* Header */}
+    <div className="flex justify-between items-center mb-4 pt-2 sm:pt-0">
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-gray-800">Zones</h1>
+        <span className="px-3 py-1 bg-gray-100 rounded-md text-sm text-gray-700">
+          Results {filteredZones.length}
+        </span>
       </div>
-    </SideBarWrapper>
+
+      {/* Add Zone Button */}
+      <button
+        onClick={() => setShowAddForm(true)}
+        className="px-4 py-2 rounded-md bg-teal-600 text-white hover:bg-teal-700"
+      >
+        + Add Zone
+      </button>
+    </div>
+
+    {/* Success Message */}
+    {successMessage && (
+      <div className="mt-4 mb-6 text-sm text-green-600 bg-green-50 p-3 rounded border border-green-200">
+        {successMessage}
+      </div>
+    )}
+
+    {/* Add and Edit Modals Side by Side */}
+    <div className="flex gap-6 mb-6">
+      {showAddForm && (
+        <AddZoneModal
+          onZoneAdded={() => {
+            fetchZones();
+            setSuccessMessage("Zone added successfully!");
+            setShowAddForm(false);
+           setTimeout(() => setSuccessMessage(""), 1500);
+          }}
+          onClose={() => setShowAddForm(false)}
+        />
+      )}
+
+      {showEditForm && (
+        <EditZoneModel
+          showEditForm={showEditForm}
+          setShowEditForm={setShowEditForm}
+          zoneToEdit={zoneToEdit}
+          setZoneToEdit={setZoneToEdit}
+          editedZoneName={editedZoneName}
+          setEditedZoneName={setEditedZoneName}
+          errorMessage={errorMessage}
+          setErrorMessage={setErrorMessage}
+          successMessage={successMessage}
+          setSuccessMessage={setSuccessMessage}
+          loadingOperation={loadingOperation}
+          confirmEditZone={confirmEditZone}
+          zones={zones}
+        />
+      )}
+
+       {/* Delete Zone Modal */}
+    {showRemoveZoneModal && (
+      <DeleteZoneModal
+        show={showRemoveZoneModal}
+        setShow={setShowRemoveZoneModal}
+        zoneId={zoneToDelete}
+        zoneName={zoneToDeleteName}
+        confirmDelete={handleDeleteZone}
+      />)}
+    </div>
+
+    {/* Zones Table */}
+    <div className="border rounded-md overflow-hidden">
+      <table className="w-full border-collapse">
+        <thead className="bg-gray-50 text-left text-sm text-gray-700">
+          <tr>
+            <th className="p-3 border-b"><input type="checkbox" /></th>
+            <th className="p-3 border-b">NAME</th>
+            <th className="p-3 border-b">SITES</th>
+            <th className="p-3 border-b">DESCRIPTION</th>
+            <th className="p-3 border-b text-right">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan={5} className="p-4 text-center text-gray-500">Loading zones...</td>
+            </tr>
+          ) : filteredZones.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="p-4 text-center text-gray-500">No zones found</td>
+            </tr>
+          ) : (
+            filteredZones.map((zone) => (
+              <tr key={zone.zoneId} className="hover:bg-gray-50">
+                <td className="p-3 border-b"><input type="checkbox" /></td>
+                <td className="p-3 border-b">
+                  <span className="text-blue-600 hover:underline cursor-pointer">{zone.zoneName}</span>
+                </td>
+                <td className="p-3 border-b">{zone.siteCount || 0}</td>
+                <td className="p-3 border-b">—</td>
+                <td className="p-3 border-b text-right flex gap-2 justify-end">
+                  <button
+                    onClick={() => {
+                      setZoneToEdit(zone.zoneId);
+                      setEditedZoneName(zone.zoneName);
+                      setShowEditForm(true);
+                      setErrorMessage("");
+                      setSuccessMessage("");
+                    }}
+                    className="px-3 py-1 text-white rounded hover:bg-orange-500"
+                  >
+                    <Image
+                      src="https://cdn-icons-png.flaticon.com/128/420/420140.png"
+                      alt="Edit"
+                      width={16}
+                      height={16}
+                    />
+                  </button>
+
+                  <button 
+                     onClick={() => {
+                     setZoneToDelete(zone.zoneId);
+    setZoneToDeleteName(zone.zoneName);
+    setShowRemoveZoneModal(true);
+  }}
+                  className="px-3 py-1 text-white rounded hover:bg-red-300">
+                    <Image
+                      src="https://cdn-icons-png.flaticon.com/128/6861/6861362.png"
+                      alt="Delete"
+                      width={16}
+                      height={16}
+                    />
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</SideBarWrapper>
+
   );
 }

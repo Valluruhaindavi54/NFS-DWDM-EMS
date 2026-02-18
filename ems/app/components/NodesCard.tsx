@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { GlassCard } from "./ClientWrappers";
+import { usePathname } from "next/navigation";
 
 type Node = {
   id: string;
@@ -13,46 +14,58 @@ type Node = {
   uptime: string;
 };
 
-// API helper
-async function getData(endpoint: string) {
-  const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
-  });
-  if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data) ? data : data.data || [];
+// API fetch helper with optional AbortController
+async function getData(endpoint: string, controller?: AbortController) {
+  try {
+    const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: controller?.signal,
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+    });
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.data || [];
+  } catch (err: any) {
+    if (err.name !== "AbortError") console.error("Node fetch failed:", err);
+    return [];
+  }
 }
 
 export default function NodesCard() {
+  const pathname=usePathname();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [orderedNodes, setOrderedNodes] = useState<Node[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
 
   const prevRef = useRef<Map<string, Node>>(new Map());
   const topRef = useRef<Node[]>([]);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  // 🔁 Fetch every 45s
+  const fetchNodes = async () => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    const data = await getData("nodes", controller);
+    if (!data.length) return;
+
+    setNodes(data);
+  };
+
+  // Polling every 45s
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+     if (pathname !== "/nfsdwdmems") return;
+    fetchNodes();
+    const interval = setInterval(fetchNodes, 45000);
 
-    const fetchNodes = async () => {
-      try {
-        const data = await getData("nodes"); // <-- your endpoint
-        setNodes(data);
-      } catch (err) {
-        console.error("Node fetch failed", err);
-      }
+    return () => {
+      controllerRef.current?.abort();
+      clearInterval(interval);
     };
-
-    fetchNodes(); // initial load
-    timer = setInterval(fetchNodes, 45000);
-
-    return () => clearInterval(timer);
   }, []);
 
-  // 🔄 Reorder + highlight logic (same idea as ConfigurationCard)
+  // Reorder + highlight logic
   useEffect(() => {
     if (!nodes.length) return;
 
@@ -61,26 +74,18 @@ export default function NodesCard() {
 
     nodes.forEach((node) => {
       const prev = prevRef.current.get(node.id);
-
       if (!prev || prev.status !== node.status || prev.uptime !== node.uptime) {
         changed.add(node.id);
-        if (!topRef.current.find((n) => n.id === node.id)) {
-          newTop.push(node);
-        }
+        if (!topRef.current.find((n) => n.id === node.id)) newTop.push(node);
       }
     });
 
     topRef.current = [
       ...newTop,
-      ...topRef.current.filter(
-        (n) => !newTop.some((nn) => nn.id === n.id)
-      ),
+      ...topRef.current.filter((n) => !newTop.some((nn) => nn.id === n.id)),
     ];
 
-    const rest = nodes.filter(
-      (n) => !topRef.current.some((t) => t.id === n.id)
-    );
-
+    const rest = nodes.filter((n) => !topRef.current.some((t) => t.id === n.id));
     setOrderedNodes([...topRef.current, ...rest]);
     setHighlighted(changed);
     prevRef.current = new Map(nodes.map((n) => [n.id, n]));
@@ -91,14 +96,10 @@ export default function NodesCard() {
 
   const statusColor = (status: string) => {
     switch (status.toUpperCase()) {
-      case "UP":
-        return "#10b981";
-      case "DOWN":
-        return "#ef4444";
-      case "MAINTENANCE":
-        return "#f97316";
-      default:
-        return "#facc15";
+      case "UP": return "#10b981";
+      case "DOWN": return "#ef4444";
+      case "MAINTENANCE": return "#f97316";
+      default: return "#facc15";
     }
   };
 

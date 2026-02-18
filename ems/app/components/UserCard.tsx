@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import React, { useEffect, useRef, useState } from "react";
 import { GlassCard, AlarmChip } from "./ClientWrappers";
 import type { UserChartData } from "./UserChart";
+import { usePathname } from "next/navigation";
 
 export type UserAction = {
   id: string;
@@ -28,20 +29,16 @@ const UserChart = dynamic(() => import("./UserChart"), { ssr: false });
 
 const actionColor = (action: string) => {
   switch (action) {
-    case "login":
-      return "#22c55e";
-    case "failedLogin":
-      return "#ff0000";
-    case "configChange":
-      return "#ff7f00";
-    case "logout":
-      return "#3b82f6";
-    default:
-      return "#94a3b8";
+    case "login": return "#22c55e";
+    case "failedLogin": return "#ef4444";
+    case "configChange": return "#ff7f00";
+    case "logout": return "#3b82f6";
+    default: return "#94a3b8";
   }
 };
 
 export default function UserCard() {
+  const pathname =usePathname();
   const [actions, setActions] = useState<UserAction[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
 
@@ -49,6 +46,7 @@ export default function UserCard() {
   const topRef = useRef<UserAction[]>([]);
 
   useEffect(() => {
+     if (pathname !== "/nfsdwdmems") return;
     let mounted = true;
 
     const fetchActions = async () => {
@@ -79,14 +77,15 @@ export default function UserCard() {
         setHighlighted(changed);
         prevRef.current = new Map(newData.map(a => [a.id, a]));
 
-        setTimeout(() => setHighlighted(new Set()), 5000);
+        const timer = setTimeout(() => setHighlighted(new Set()), 5000);
+        return () => clearTimeout(timer);
       } catch (err) {
         console.error("User actions fetch error:", err);
       }
     };
 
     fetchActions();
-    const interval = setInterval(fetchActions, 45000); // 45 sec refresh
+    const interval = setInterval(fetchActions, 45000);
 
     return () => {
       mounted = false;
@@ -179,9 +178,7 @@ export default function UserCard() {
                 >
                   <td style={cellStyle}>{a.id}</td>
                   <td style={cellStyle}>{a.username}</td>
-                  <td style={{ ...cellStyle, color: actionColor(a.action), fontWeight: 500 }}>
-                    {a.action}
-                  </td>
+                  <td style={{ ...cellStyle, color: actionColor(a.action), fontWeight: 500 }}>{a.action}</td>
                   <td style={cellStyle}>{new Date(a.timestamp).toLocaleString()}</td>
                   <td style={cellStyle}>{a.ip}</td>
                 </tr>

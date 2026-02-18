@@ -1,6 +1,8 @@
 import React, { useState ,useEffect} from "react";
 import { SERVERID } from "@/app/Constaint";
 import { useSearchParams ,usePathname} from "next/navigation";
+import {useRouter} from "next/navigation";
+
 import HomeComponent from "./HomeComponent";
 import AddZoneModal from "./Modals/AddZoneModel";
 import ConfirmationModal from './Modals/ConfirmationModal'
@@ -14,7 +16,7 @@ import { useCircleHandlers } from "./Modals/SidebarHandlers/CircleHandlers";
 import { useConfirmationHandlers } from "./Modals/SidebarHandlers/ConfirmationHandlers";
 import {useZoneHandlers} from './Modals/SidebarHandlers/ZoneHandlers';
 const SideBarWrapper = ({ children }) => {
-
+    const router=useRouter();
     const pathname=usePathname();
     const isZonesPage = pathname === "/nfsddwdmems/zones";
 
@@ -274,7 +276,7 @@ if (!isDeconfiguredNode) {
     setIpStatus,
   });
 
-  useDataFetchingEffects({
+useDataFetchingEffects({
     SERVERID,
     showZone,
     showCircle,
@@ -291,6 +293,7 @@ if (!isDeconfiguredNode) {
     setIpStatus,
     nodes,
     circles,
+  isZonesPage,
   });
 
   useFormEffects({
@@ -394,6 +397,7 @@ if (!isDeconfiguredNode) {
   handleRemoveNode: () => {},
 });
 
+  const ishome = pathname === "/nfsddwdmems";
   return (
     <>
       <style>
@@ -412,7 +416,7 @@ if (!isDeconfiguredNode) {
 >
   ☰
 </button>
-<div className="flex h-screen relative">
+<div className="flex  relative min-h-screen w-full">
 
   {/* Mobile overlay */}
   {isSidebarOpen && (
@@ -435,18 +439,27 @@ if (!isDeconfiguredNode) {
 `}>
 
 
-    <button
-      onClick={() => setIsSidebarOpen(false)}
-      className="lg:hidden absolute top-4 right-4 text-xl text-black"
-    >
-      ✕
-    </button>
+ <div className="relative flex items-center justify-between p-2 border-b border-gray-200">
+  {/* Close button */}
+  <button
+    onClick={() => setIsSidebarOpen(false)}
+    className="lg:hidden text-xl text-black"
+  >
+    ✕
+  </button>
 
+  {/* Home component */}
+  <div className="ml-6 flex-1">
     <HomeComponent
+      onClick={() => router.push("/nfsddwdmems")}
       showZone={showZone}
       toggleZone={() => setShowZone((prev) => !prev)}
       setShowAddZoneModal={setShowAddZoneModal}
     />
+  </div>
+</div>
+
+
 
     {showZone && (
       <div className="pl-6">
@@ -469,10 +482,10 @@ if (!isDeconfiguredNode) {
   </div>
 
   {/* Main content */}
-  <div className="flex-1 bg-gray-50 relative min-h-screen ">
+  <div className="flex-1 bg-gray-50 relative h-auto ">
           {children}
 
-        
+{/*         
          <AddZoneModal
        
             showAddZoneModal={showAddZoneModal}
@@ -486,7 +499,7 @@ if (!isDeconfiguredNode) {
             loadingOperation={loadingOperation}
             confirmAddZone={confirmAddZone}
 
-          />
+          /> */}
           
 
 
