@@ -68,8 +68,8 @@ export default function Simulator() {
   }, [authChecked, fetchData]);
 
   return (
-    <SideBarWrapper SelectedIp={SelectedIp}>
-      <div style={{ flex: 1, padding: "20px", minHeight: "100vh", background: "#0f172a" }}>
+
+      <div style={{ flex: 1, minHeight: "100vh", background: "#0f172a" }}>
         {isLoading ? (
           <div>Loading...</div>
         ) : Object.keys(Rack).length > 0 ? (
@@ -78,6 +78,6 @@ export default function Simulator() {
           <Dashboard />
         )}
       </div>
-    </SideBarWrapper>
+  
   );
 }

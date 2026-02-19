@@ -27,7 +27,7 @@ async function getData(endpoint: string, controller: AbortController) {
 }
 
 export default function AlarmCard() {
-  const pathname=usePathname();
+  const pathname = usePathname();
   const [orderedAlarms, setOrderedAlarms] = useState<Alarm[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const prevRef = useRef<Map<string, Alarm>>(new Map());
@@ -35,11 +35,11 @@ export default function AlarmCard() {
   const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-     if (pathname !== "/nfsdwdmems") return;
+    if (pathname !== "/nfsdwdmems") return;
     let mounted = true;
 
     const fetchAlarms = async () => {
-      controllerRef.current?.abort(); // abort previous fetch if ongoing
+      controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
 
@@ -73,7 +73,6 @@ export default function AlarmCard() {
         setHighlighted(changed);
         prevRef.current = new Map(newData.map((a) => [a.id, a]));
 
-        // clear highlight after 3 sec
         setTimeout(() => setHighlighted(new Set()), 3000);
       } catch (err: any) {
         if (err.name !== "AbortError") console.error("Alarm fetch error:", err);
@@ -92,8 +91,8 @@ export default function AlarmCard() {
 
   const severityColor = (severity: string) => {
     switch (severity.toUpperCase()) {
-      case "CRITICAL": return "#ff0000";
-      case "MAJOR": return "#ff7f00";
+      case "CRITICAL": return "#ef4444";
+      case "MAJOR": return "#f97316";
       case "MINOR": return "#3b82f6";
       case "CLEARED": return "#22c55e";
       case "WARNING": return "#eab308";
@@ -117,26 +116,27 @@ export default function AlarmCard() {
   const th: React.CSSProperties = {
     position: "sticky",
     top: 0,
-    background: "#1e293b",
+    background: "#f3f4f6", // light gray for white dashboard
     zIndex: 2,
     fontSize: "10px",
     textTransform: "uppercase",
-    color: "#64748b",
+    color: "#374151", // dark gray
     padding: "10px 8px",
     textAlign: "left",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid #e5e7eb",
   };
 
   const td: React.CSSProperties = {
     padding: "10px 8px",
     fontSize: "11px",
-    borderBottom: "1px solid rgba(255,255,255,0.03)",
-    color: "#e2e8f0",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#111111",
   };
 
   return (
-    <GlassCard style={{ minHeight: "420px", display: "flex", flexDirection: "column" }}>
-      <h2 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "12px", color: "#ffffff" }}>
+    <GlassCard style={{ minHeight: "420px", display: "flex", flexDirection: "column", backgroundColor: "#ffffff", borderTop: "4px solid #7a8ed6",
+    borderRadius: 8,  }}>
+      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "12px", color: "#111111" }}>
         System Alarms
       </h2>
 
@@ -149,7 +149,7 @@ export default function AlarmCard() {
       </div>
 
       <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#ffffff" }}>
           <thead>
             <tr>
               <th style={th}>NodeID</th>
@@ -167,7 +167,7 @@ export default function AlarmCard() {
                 <tr
                   key={a.id}
                   style={{
-                    background: isChanged ? "rgba(59,130,246,0.18)" : "transparent",
+                    background: isChanged ? "rgba(59,130,246,0.1)" : "transparent",
                     transition: "background 1s ease",
                   }}
                 >
@@ -180,7 +180,7 @@ export default function AlarmCard() {
                   <td style={{ ...td, maxWidth: 150, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {a.description}
                   </td>
-                  <td style={{ ...td, color: "#64748b" }}>{a.timestamp}</td>
+                  <td style={{ ...td, color: "#6b7280" }}>{a.timestamp}</td>
                 </tr>
               );
             })}

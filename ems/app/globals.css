@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ffffff !important;
+  --foreground: #0000000;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-background: var(--background) !important;
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -14,7 +14,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background:#ffffffff;
     --foreground: #ededed;
   }
 }
@@ -43,7 +43,7 @@ body {
 
 /* Active / hover effects stay the same */
 .button2:active {
-  box-shadow: inset 4px 4px 12px #c5c5c5, inset -4px -4px 12px #ffffff;
+  box-shadow: inset 4px 4px 12px #c5c5c5, inset -4px -4px 12px #0000000;
 }
 
 .button2:hover {

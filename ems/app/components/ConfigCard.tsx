@@ -11,10 +11,8 @@ export interface Config {
   compliance: string;
 }
 
-// Helper: unique key per config
 const configKey = (c: Config) => `${c.nodeId}-${c.backupTime}`;
 
-// API fetch helper
 async function getData(endpoint: string, controller?: AbortController) {
   const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
   const res = await fetch(url, {
@@ -28,7 +26,7 @@ async function getData(endpoint: string, controller?: AbortController) {
 }
 
 export default function ConfigurationCard() {
-  const pathname=usePathname();
+  const pathname = usePathname();
   const [configs, setConfigs] = useState<Config[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const prevConfigsRef = useRef<Map<string, Config>>(new Map());
@@ -36,9 +34,8 @@ export default function ConfigurationCard() {
   const controllerRef = useRef<AbortController | null>(null);
   const [orderedConfigs, setOrderedConfigs] = useState<Config[]>([]);
 
-  // Fetch configs
   const fetchConfigs = async () => {
-     if (pathname !== "/nfsdwdmems") return;
+    if (pathname !== "/nfsdwdmems") return;
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -55,13 +52,10 @@ export default function ConfigurationCard() {
         const prev = prevConfigsRef.current.get(key);
         if (!prev || prev.status !== c.status || prev.compliance !== c.compliance) {
           changedKeys.add(key);
-          if (!topConfigsRef.current.find((t) => configKey(t) === key)) {
-            newTop.push(c);
-          }
+          if (!topConfigsRef.current.find((t) => configKey(t) === key)) newTop.push(c);
         }
       });
 
-      // Update top configs
       topConfigsRef.current = [
         ...newTop,
         ...topConfigsRef.current.filter(
@@ -74,7 +68,6 @@ export default function ConfigurationCard() {
       );
 
       const finalList = [...topConfigsRef.current, ...rest];
-
       setOrderedConfigs(finalList);
       setHighlighted(changedKeys);
       prevConfigsRef.current = new Map(data.map((c) => [configKey(c), c]));
@@ -86,7 +79,6 @@ export default function ConfigurationCard() {
     }
   };
 
-  // Polling every 45 sec
   useEffect(() => {
     fetchConfigs();
     const interval = setInterval(fetchConfigs, 45000);
@@ -96,35 +88,32 @@ export default function ConfigurationCard() {
     };
   }, []);
 
-  // Color helpers
   const getStatusColor = (status: string) =>
     status === "SUCCESS" ? "#22c55e" : status === "FAILED" ? "#ef4444" : "#facc15";
 
   const getComplianceColor = (compliance: string) =>
     compliance === "Compliant" ? "#22c55e" : "#ef4444";
 
-  // Table styles
   const tableHeaderStyle: React.CSSProperties = {
     position: "sticky",
     top: 0,
-    background: "#1e293b",
+    background: "#f3f4f6", // light gray header
     zIndex: 2,
     fontSize: "10px",
     textTransform: "uppercase",
-    color: "#ffffff",
+    color: "#374151", // dark gray
     padding: "10px 8px",
     textAlign: "left",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid #e5e7eb",
   };
 
   const cellStyle: React.CSSProperties = {
     padding: "10px 8px",
     fontSize: "11px",
-    borderBottom: "1px solid rgba(255,255,255,0.03)",
-    color: "#ffffff",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#111111",
   };
 
-  // Count summaries
   const countCompliance = orderedConfigs.reduce((acc, c) => {
     acc[c.compliance] = (acc[c.compliance] || 0) + 1;
     return acc;
@@ -136,8 +125,9 @@ export default function ConfigurationCard() {
   }, {} as Record<string, number>);
 
   return (
-    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600 }}>
-      <h3 style={{ color: "#ffffff", marginBottom: 12 }}>Backup Configurations</h3>
+    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 600, backgroundColor: "#ffffff", padding: 16 , borderTop: "4px solid #f0b03a",
+    borderRadius: 8,}}>
+      <h3 style={{ color: "#111111", marginBottom: 12 }}>Backup Configurations</h3>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         {Object.entries(countCompliance).map(([compliance, count]) => (
@@ -159,7 +149,7 @@ export default function ConfigurationCard() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", maxHeight: 600 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#ffffff" }}>
           <thead>
             <tr>
               <th style={tableHeaderStyle}>Node ID</th>
@@ -176,7 +166,7 @@ export default function ConfigurationCard() {
                 <tr
                   key={key}
                   style={{
-                    backgroundColor: isUpdated ? "rgba(59, 130, 246, 0.2)" : "transparent",
+                    backgroundColor: isUpdated ? "rgba(59, 130, 246, 0.1)" : "transparent",
                     transition: "background-color 1s ease-in-out",
                   }}
                 >
@@ -187,13 +177,7 @@ export default function ConfigurationCard() {
                   <td style={{ ...cellStyle, fontWeight: "bold", color: getStatusColor(c.status) }}>
                     {c.status}
                   </td>
-                  <td
-                    style={{
-                      ...cellStyle,
-                      fontWeight: "bold",
-                      color: getComplianceColor(c.compliance),
-                    }}
-                  >
+                  <td style={{ ...cellStyle, fontWeight: "bold", color: getComplianceColor(c.compliance) }}>
                     {c.compliance}
                   </td>
                 </tr>

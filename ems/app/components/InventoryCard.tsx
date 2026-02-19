@@ -13,7 +13,6 @@ type InventoryNode = {
   firmware: string;
 };
 
-// API fetch helper with optional abort controller
 async function getInventory(controller?: AbortController): Promise<InventoryNode[]> {
   try {
     const res = await fetch(`/api/proxy?endpoint=inventory&_=${Date.now()}`, {
@@ -30,7 +29,7 @@ async function getInventory(controller?: AbortController): Promise<InventoryNode
 }
 
 export default function InventoryCard() {
-  const pathname=usePathname();
+  const pathname = usePathname();
   const [items, setItems] = useState<InventoryNode[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
 
@@ -41,7 +40,7 @@ export default function InventoryCard() {
     `${item.nodeId}-${item.rack}-${item.subrack}-${item.slot}-${item.port}`;
 
   const fetchInventoryData = async () => {
-     if (pathname !== "/nfsdwdmems") return;
+    if (pathname !== "/nfsdwdmems") return;
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -68,7 +67,6 @@ export default function InventoryCard() {
       }
     });
 
-    // Move all rows of changed nodes to top
     const topRows: InventoryNode[] = [];
     const restRows: InventoryNode[] = [];
 
@@ -98,31 +96,32 @@ export default function InventoryCard() {
   const headerStyle: React.CSSProperties = {
     position: "sticky",
     top: 0,
-    background: "#1e293b",
+    background: "#f3f4f6", // light gray header
     zIndex: 2,
     fontSize: "10px",
     textTransform: "uppercase",
-    color: "#ffffff",
+    color: "#374151", // dark gray
     padding: "10px 8px",
     textAlign: "left",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid #e5e7eb",
   };
 
   const cellStyle: React.CSSProperties = {
     padding: "10px 8px",
     fontSize: "11px",
-    borderBottom: "1px solid rgba(255,255,255,0.03)",
-    color: "#ffffff",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#111111",
   };
 
   return (
-    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420 }}>
-      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#ffffff" }}>
+    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420, backgroundColor: "#ffffff",borderTop: "4px solid #38baad ",
+    borderRadius: 8,  }}>
+      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#111111" }}>
         Inventory
       </h2>
 
       <div style={{ flex: 1, overflowY: "auto", maxHeight: 360 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#ffffff" }}>
           <thead>
             <tr>
               {["Node ID", "Rack", "Subrack", "Slot", "Port", "Firmware"].map((h) => (
@@ -140,7 +139,7 @@ export default function InventoryCard() {
                 <tr
                   key={key}
                   style={{
-                    backgroundColor: isChanged ? "rgba(59,130,246,0.2)" : "transparent",
+                    backgroundColor: isChanged ? "rgba(59,130,246,0.1)" : "transparent",
                     transition: "background-color 1s ease-in-out",
                   }}
                 >
@@ -149,7 +148,7 @@ export default function InventoryCard() {
                   <td style={cellStyle}>{n.subrack}</td>
                   <td style={cellStyle}>{n.slot}</td>
                   <td style={cellStyle}>{n.port}</td>
-                  <td style={{ ...cellStyle, color: "#38bdf8" }}>{n.firmware}</td>
+                  <td style={{ ...cellStyle, color: "#3b82f6" }}>{n.firmware}</td>
                 </tr>
               );
             })}

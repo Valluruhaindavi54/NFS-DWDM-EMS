@@ -1,4 +1,6 @@
+"use client";
 import React, { useState ,useEffect} from "react";
+import Image from "next/image";
 import { SERVERID } from "@/app/Constaint";
 import { useSearchParams ,usePathname} from "next/navigation";
 import {useRouter} from "next/navigation";
@@ -21,7 +23,7 @@ const SideBarWrapper = ({ children }) => {
     const isZonesPage = pathname === "/nfsddwdmems/zones";
 
   // Tree structure states
-  const [showZone, setShowZone] = useState(false);
+  const [showZone, setShowZone] = useState(true);
   const [showCircle, setShowCircle] = useState({});
   const [showNode, setShowNode] = useState({});
 const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -400,119 +402,77 @@ useDataFetchingEffects({
   const ishome = pathname === "/nfsddwdmems";
   return (
     <>
-      <style>
-        {`
-          .custom-select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.75rem center;
-            background-size: 1rem;
-          }
-        `}
-      </style>
+    {/* Mobile open button */}
       <button
-  onClick={() => setIsSidebarOpen(true)}
-  className="lg:hidden fixed top-4 left-4 z-50 bg-white text-black p-2 rounded shadow"
->
-  ☰
-</button>
-<div className="flex  relative min-h-screen w-full">
+        onClick={() => setIsSidebarOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 bg-white text-black p-2 rounded shadow"
+      >
+        ☰
+      </button>
 
-  {/* Mobile overlay */}
-  {isSidebarOpen && (
-    <div
-      onClick={() => setIsSidebarOpen(false)}
-      className="fixed inset-0 bg-black/40 z-40 lg:hidden"
-    />
-  )}
-
-  {/* Sidebar */}
-<div className={`
-  fixed lg:static top-0 left-0 min-h-screen z-50
-  bg-white border-r border-gray-300 shadow-sm
-  w-full sm:w-[360px]
-  h-auto
-  transform transition-transform duration-300
-  ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-  lg:translate-x-0
-
-`}>
-
-
- <div className="relative flex items-center justify-between p-2 border-b border-gray-200">
-  {/* Close button */}
-  <button
-    onClick={() => setIsSidebarOpen(false)}
-    className="lg:hidden text-xl text-black"
-  >
-    ✕
-  </button>
-
-  {/* Home component */}
-  <div className="ml-6 flex-1">
-    <HomeComponent
-      onClick={() => router.push("/nfsddwdmems")}
-      showZone={showZone}
-      toggleZone={() => setShowZone((prev) => !prev)}
-      setShowAddZoneModal={setShowAddZoneModal}
-    />
-  </div>
-</div>
-
-
-
-    {showZone && (
-      <div className="pl-6">
-        {loading.zones ? (
-          <div className="text-gray-500 py-1 px-2">Loading zones...</div>
-        ) : Object.keys(zones).length === 0 ? (
-          <div className="text-gray-500 py-1 px-2">No zones found</div>
-        ) : (
-          zones.map((zone) => (
-            <ZoneComponent
-              key={zone.zoneId}
-              zoneId={zone.zoneId}
-              zoneName={zone.zoneName}
-              setShowZoneOptionsModal={setShowZoneOptionsModal}
-            />
-          ))
-        )}
-      </div>
-    )}
-  </div>
-
-  {/* Main content */}
-  <div className="flex-1 bg-gray-50 relative h-auto ">
-          {children}
-
-{/*         
-         <AddZoneModal
-       
-            showAddZoneModal={showAddZoneModal}
-            setShowAddZoneModal={setShowAddZoneModal}
-            newZoneName={newZoneName}
-            setNewZoneName={setNewZoneName}
-            errorMessage={errorMessage}
-            setErrorMessage={setErrorMessage}
-            successMessage={successMessage}
-            setSuccessMessage={setSuccessMessage}
-            loadingOperation={loadingOperation}
-            confirmAddZone={confirmAddZone}
-
-          /> */}
-          
-
-
-          
-
-  
-
-          
-
-          <ConfirmationModal
-            showConfirmationModal={showConfirmationModal}
-            setShowConfirmationModal={setShowConfirmationModal}
+      <div className="flex relative min-h-screen w-full">
+        {/* Mobile overlay */}
+        {isSidebarOpen && (
+          <div
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           />
+        )}
+
+        {/* Sidebar */}
+        <div
+          className={`
+            fixed lg:static top-0 left-0 min-h-screen z-50
+            bg-white border-r border-gray-300 shadow-sm
+            w-full sm:w-[360px] h-auto
+            transform transition-transform duration-300
+            ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0
+          `}
+        >
+          {/* Header with close button */}
+          <div className="flex items-center justify-between p-2 border-b border-gray-200">
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden text-xl text-black"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Home Component */}
+          <div className="pl-4">
+            <HomeComponent
+              onClick={() => router.push("/nfsddwdmems")}
+              showZone={showZone}
+              toggleZone={() => setShowZone((prev) => !prev)}
+            />
+          </div>
+
+          {/* Zones Tree */}
+          {showZone && (
+            <div className="pl-6 mt-2">
+              {loading.zones ? (
+                <div className="text-gray-500 py-1 px-2">Loading zones...</div>
+              ) : zones.length === 0 ? (
+                <div className="text-gray-500 py-1 px-2">No zones found</div>
+              ) : (
+                zones.map((zone) => (
+                  <div key={zone.zoneId} className="pl-2">
+                    <ZoneComponent
+                      zoneId={zone.zoneId}
+                      zoneName={zone.zoneName}
+                      setShowZoneOptionsModal={() => {}}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 bg-gray-50 relative h-auto transition-all duration-300">
+          {children}
         </div>
       </div>
     </>

@@ -101,7 +101,7 @@ export default function Dashboard() {
   const totalAlarms = alarms.length;
 
   return (
-    <div style={{ padding: "20px", background: "#0f172a", minHeight: "100vh" }}>
+    <div style={{ padding: "20px", minHeight: "100vh",backgroundColor: "var(--background)" }}>
       {/* Top summary cards */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
         <StatCard label="Nodes Up" count={nodeStats.up} color="#22c55e" />

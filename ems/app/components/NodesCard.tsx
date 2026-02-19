@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { GlassCard } from "./ClientWrappers";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 type Node = {
   id: string;
@@ -14,7 +15,7 @@ type Node = {
   uptime: string;
 };
 
-// API fetch helper with optional AbortController
+// API fetch helper
 async function getData(endpoint: string, controller?: AbortController) {
   try {
     const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
@@ -33,7 +34,7 @@ async function getData(endpoint: string, controller?: AbortController) {
 }
 
 export default function NodesCard() {
-  const pathname=usePathname();
+  const pathname = usePathname();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [orderedNodes, setOrderedNodes] = useState<Node[]>([]);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
@@ -53,9 +54,8 @@ export default function NodesCard() {
     setNodes(data);
   };
 
-  // Polling every 45s
   useEffect(() => {
-     if (pathname !== "/nfsdwdmems") return;
+    if (pathname !== "/nfsdwdmems") return;
     fetchNodes();
     const interval = setInterval(fetchNodes, 45000);
 
@@ -65,7 +65,6 @@ export default function NodesCard() {
     };
   }, []);
 
-  // Reorder + highlight logic
   useEffect(() => {
     if (!nodes.length) return;
 
@@ -96,41 +95,69 @@ export default function NodesCard() {
 
   const statusColor = (status: string) => {
     switch (status.toUpperCase()) {
-      case "UP": return "#10b981";
-      case "DOWN": return "#ef4444";
-      case "MAINTENANCE": return "#f97316";
-      default: return "#facc15";
+      case "UP": return "#10b981"; // green
+      case "DOWN": return "#ef4444"; // red
+      case "MAINTENANCE": return "#f97316"; // orange
+      default: return "#facc15"; // yellow
     }
   };
 
   const headerStyle: React.CSSProperties = {
     position: "sticky",
     top: 0,
-    background: "#1e293b",
+    background: "#f3f4f6", // light gray
     zIndex: 2,
     fontSize: "10px",
     textTransform: "uppercase",
-    color: "#ffffff",
+    color: "#374151", // dark gray
     padding: "10px 8px",
     textAlign: "left",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid #e5e7eb",
   };
 
   const cellStyle: React.CSSProperties = {
     padding: "10px 8px",
     fontSize: "11px",
-    borderBottom: "1px solid rgba(255,255,255,0.03)",
-    color: "#ffffff",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#111111",
   };
 
   return (
-    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420 }}>
-      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#ffffff" }}>
-        Nodes List
+    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420, backgroundColor: "#ffffff",   borderTop: "4px solid #22c55e",
+    borderRadius: 8,   }}>
+  {/* <div
+  style={{
+    display: "flex",
+    alignItems: "center",          // vertically center icon and text
+    gap: 12,                        // space between icon and text
+    marginBottom: 16,
+    height: 50,
+   
+    padding: "0 16px",
+    borderRadius: 8,
+   
+  }}
+> */}
+  {/* Left Icon
+  <Image
+    src="/system.png"
+    alt="Nodes"
+    width={42}
+    height={30}
+    className="object-contain"
+  /> */}
+
+  <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "12px", color: "#111111" }}>
+        Nodes
       </h2>
 
+
+
+
+
+
       <div style={{ flex: 1, overflowY: "auto", maxHeight: 360 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#ffffff" }}>
           <thead>
             <tr>
               {["Name", "IP", "Status", "Type", "Region", "Uptime"].map((h) => (
@@ -145,12 +172,12 @@ export default function NodesCard() {
                 <tr
                   key={n.id}
                   style={{
-                    backgroundColor: isChanged ? "rgba(59,130,246,0.2)" : "transparent",
+                    backgroundColor: isChanged ? "rgba(59,130,246,0.1)" : "transparent",
                     transition: "background-color 1s ease-in-out",
                   }}
                 >
                   <td style={cellStyle}>{n.name}</td>
-                  <td style={{ ...cellStyle, color: "#94a3b8" }}>{n.ip}</td>
+                  <td style={{ ...cellStyle, color: "#6b7280" }}>{n.ip}</td> {/* gray IP */}
                   <td style={{ ...cellStyle, color: statusColor(n.status) }}>{n.status}</td>
                   <td style={cellStyle}>{n.type}</td>
                   <td style={cellStyle}>{n.region}</td>

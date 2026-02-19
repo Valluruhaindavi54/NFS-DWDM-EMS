@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import Arrow from "./Utils/Arrow";
-
+import Image from 'next/image';
 const ZoneComponent = ({
   zoneId,
   zoneName,
@@ -22,13 +22,24 @@ const ZoneComponent = ({
   fetchAndSetNodeDetails
 }) => {
   return (
+    <>
+
+
     <div className="group">
+     
       <div className="flex items-center justify-between hover:bg-gray-100 sidebar-item">
         <div
-          className="flex items-center cursor-pointer px-4 py-2 flex-grow text-black"
+          className="flex items-center gap-3 cursor-pointer px-4 py-2 flex-grow text-black"
           onClick={() => toggleCircle(zoneId)}
         >
           {/* <Arrow open={showCircle[zoneId]} /> */}
+          <Arrow/>
+          <Image src='/server2.png'
+          width={15}
+          height={30}
+          alt='zone'
+          // open={showCircle[zoneId]}
+          />
           <span>Zone({zoneName})</span>
         </div>
         <button
@@ -76,6 +87,8 @@ const ZoneComponent = ({
         </div>
       )} */}
     </div>
+
+</>
   );
 };
 

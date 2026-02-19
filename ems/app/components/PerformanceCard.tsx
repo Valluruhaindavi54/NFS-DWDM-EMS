@@ -13,31 +13,18 @@ export interface PerformanceData {
   bandwidthUtilization: number;
 }
 
-// API fetch helper (optional if fetching externally)
-async function getData(endpoint: string) {
-  const url = `/api/proxy?endpoint=${endpoint}&_=${Date.now()}`;
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
-  });
-  if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data) ? data : data.data || [];
-}
-
 export default function PerformanceCard({ performance }: { performance: PerformanceData[] }) {
-const pathname =usePathname();
+  const pathname = usePathname();
   const [data, setData] = useState<PerformanceData[]>([]);
   const [highlightedIds, setHighlightedIds] = useState<Set<number>>(new Set());
 
   const prevDataRef = useRef<Map<number, PerformanceData>>(new Map());
   const topDataRef = useRef<PerformanceData[]>([]);
 
-  // orderedPerformance keeps the top rows + remaining rows
   const [orderedPerformance, setOrderedPerformance] = useState<PerformanceData[]>([]);
 
   useEffect(() => {
-     if (pathname !== "/nfsdwdmems") return;
+    if (pathname !== "/nfsdwdmems") return;
     if (!performance.length) return;
 
     const changed = new Set<number>();
@@ -78,33 +65,34 @@ const pathname =usePathname();
   const headerStyle: React.CSSProperties = {
     position: "sticky",
     top: 0,
-    background: "#1e293b",
+    background: "#f3f4f6", // light gray header
     zIndex: 2,
     fontSize: "10px",
     textTransform: "uppercase",
-    color: "#ffffff",
+    color: "#374151", // dark gray
     padding: "10px 8px",
     textAlign: "left",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid #e5e7eb",
   };
 
   const cellStyle: React.CSSProperties = {
     padding: "10px 8px",
     fontSize: "11px",
-    borderBottom: "1px solid rgba(255,255,255,0.03)",
-    color: "#ffffff",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#111111",
   };
 
   return (
-    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420 }}>
-      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#ffffff" }}>
+    <GlassCard style={{ display: "flex", flexDirection: "column", minHeight: 420, backgroundColor: "#ffffff",borderTop: "4px solid #b4cf55",
+    borderRadius: 8, }}>
+      <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 12, color: "#111111" }}>
         Live Performance Metrics
       </h2>
 
       <PerformanceChart data={data} />
 
       <div style={{ flex: 1, overflowY: "auto", maxHeight: 300, marginTop: 10 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#ffffff" }}>
           <thead>
             <tr>
               {["Node", "Latency (ms)", "Error Rate (%)", "Bandwidth Utilization (%)", "Timestamp"].map(
@@ -123,7 +111,7 @@ const pathname =usePathname();
                 <tr
                   key={`${row.nodeId}-${row.timestamp}`}
                   style={{
-                    backgroundColor: isChanged ? "rgba(59, 130, 246, 0.2)" : "transparent",
+                    backgroundColor: isChanged ? "rgba(59, 130, 246, 0.1)" : "transparent",
                     transition: "background-color 1s ease-in-out",
                   }}
                 >
@@ -131,7 +119,7 @@ const pathname =usePathname();
                   <td style={cellStyle}>{row.latency}</td>
                   <td style={cellStyle}>{row.errorRate}</td>
                   <td style={cellStyle}>{row.bandwidthUtilization}</td>
-                  <td style={{ ...cellStyle, color: "#94a3b8" }}>
+                  <td style={{ ...cellStyle, color: "#6b7280" }}>
                     {new Date(row.timestamp).toLocaleString()}
                   </td>
                 </tr>
