@@ -1,106 +1,107 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { StatCard } from "./components/ClientWrappers";
-import NodesCard from "./components/NodesCard";
-import AlarmCard from "./components/AlarmCard";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { SERVERID } from "./Constaint";
 
+export default function Login() {
+  const router = useRouter();
 
-// ---------- API helper ----------
-async function getData(endpoint: string) {
-  const url = `/api/proxy?endpoint=${endpoint}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : data.data || [];
-  } catch (err: any) {
-    console.error(`Fetch error for ${endpoint}:`, err.message);
-    return [];
-  }
-}
-
-export default function Page() {
-  const [nodes, setNodes] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [alarms, setAlarms] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // ---------- Fetch every 2s ----------
-  useEffect(() => {
-    const fetchAll = async () => {
-      const [n, u, i, a] = await Promise.all([
-        getData("nodes"),
-        getData("users"),
-        getData("inventory"),
-        getData("alarms"),
-      ]);
-
-      setNodes(n);
-      setUsers(u);
-      setInventory(i);
-      setAlarms(a);
-      setLoading(false);
-    };
-
-    fetchAll();
-    const interval = setInterval(fetchAll, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) return null; // header stays visible, cards load silently
-
-  // ---------- Node stats ----------
-  const nodeStats = nodes.reduce(
-    (acc, node) => {
-      const status = node.status?.toUpperCase();
-      if (status === "UP") acc.up++;
-      else if (status === "DOWN") acc.down++;
-      return acc;
-    },
-    { up: 0, down: 0 }
-  );
-
-  // ---------- Active users (latest action per user) ----------
-  const latestUserAction: Record<string, { action: string; timestamp: string }> = {};
-
-  users.forEach((u: any) => {
-    if (!latestUserAction[u.username] || new Date(u.timestamp) > new Date(latestUserAction[u.username].timestamp)) {
-      latestUserAction[u.username] = { action: u.action, timestamp: u.timestamp };
-    }
+  const [user, setUser] = useState({ userEmailId: "", userPassword: "" });
+  const [userWarnings, setUserWarnigs] = useState({
+    userEmailIdWarning: "",
+    userPasswordWarnigs: "",
   });
+  const [formErr, setFormErr] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const activeUsers = Object.values(latestUserAction).filter(u => u.action === "login").length;
+  const inputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUser((prev) => ({ ...prev, [name]: value }));
+  };
 
-  // ---------- Inventory ----------
-  const totalInventory = inventory.length;
+  const SubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  // ---------- Total alarms ----------
-  const totalAlarms = alarms.length;
+    let warnings = { userEmailIdWarning: "", userPasswordWarnigs: "" };
+
+    if (user.userEmailId.length < 4)
+      warnings.userEmailIdWarning = "Email can't be less than 4 characters";
+    if (user.userPassword.length < 4)
+      warnings.userPasswordWarnigs = "Password can't be less than 4 characters";
+
+    setUserWarnigs(warnings);
+
+    if (Object.values(warnings).every((val) => val === "")) {
+      try {
+        const res = await fetch(`http://${SERVERID}/api/v1/authenticate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(user),
+        });
+
+        const data = await res.json();
+
+        if (data?.jwtToken) {
+          localStorage.setItem("emsToken", JSON.stringify(data.jwtToken));
+          router.push("/nfsddwdmems"); // ONLY here
+        } else {
+          setFormErr("Invalid email or password");
+        }
+      } catch (err: any) {
+        setFormErr(err.message || "An error occurred");
+      }
+    }
+  };
 
   return (
-     <div style={{ padding: "20px", background: "#0f172a", minHeight: "100vh" }}>
-      {/* Top summary cards */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
-        <StatCard label="Nodes Up" count={nodeStats.up} color="#22c55e" />
-        <StatCard label="Nodes Down" count={nodeStats.down} color="#ef4444" />
-        <StatCard label="Total Alarms" count={totalAlarms} color="#f97316" />
-        <StatCard label="Active Users" count={activeUsers} color="#38bdf8" />
-        <StatCard label="Total Inventory" count={totalInventory} color="#a855f7" />
-      </div>
-<div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "20px",
-  }}
->
-  <NodesCard />
-  <AlarmCard />
-</div>
+    <div className="container w-screen h-screen flex justify-center items-center bg-gray-900">
+      <form
+        onSubmit={SubmitForm}
+        className="w-96 space-y-6 p-6 border border-gray-700 bg-gray-800 rounded-md"
+      >
+        <h1 className="text-blue-500 font-bold text-xl text-center">
+          EMS Simulator Login
+        </h1>
 
+        <input
+          type="email"
+          placeholder="Enter Email"
+          name="userEmailId"
+          value={user.userEmailId}
+          onChange={inputChange}
+          className="w-full h-10 text-white border border-gray-600 rounded-md pl-2"
+        />
+        <p className="text-red-600 text-sm">{userWarnings.userEmailIdWarning}</p>
 
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            name="userPassword"
+            value={user.userPassword}
+            onChange={inputChange}
+            className="w-full h-10 text-white border border-gray-600 rounded-md pl-2"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-2 text-gray-400"
+          >
+            👁
+          </button>
+        </div>
+        <p className="text-red-600 text-sm">{userWarnings.userPasswordWarnigs}</p>
+
+        <button
+          type="submit"
+          className="w-full h-10 bg-blue-500 hover:bg-blue-600 text-white rounded-md"
+        >
+          Login
+        </button>
+
+        <p className="text-red-600 text-sm text-center">{formErr}</p>
+      </form>
     </div>
   );
 }
